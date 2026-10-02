@@ -115,14 +115,101 @@ fn collect_and_ingest(title: &str, base: &Path) {
     }
 }
 
+/// 끌어다 놓거나 붙여 넣은 경로를 정리한다 (앞뒤 따옴표, 공백 앞의 역슬래시, 줄 끝 공백).
+pub fn clean_path(line: &str) -> String {
+    let t = line.trim().trim_matches(|c| c == '\'' || c == '"');
+    t.replace("\\ ", " ")
+}
+
+/// 카카오톡 내보내기 TXT 로 보이는 파일인지 (이름이 `KakaoTalk` 로 시작하는 `.txt`).
+pub fn looks_like_export(name: &str) -> bool {
+    let n = name.to_lowercase();
+    n.starts_with("kakaotalk") && n.ends_with(".txt")
+}
+
+/// 폴더들에서 내보내기 TXT 를 찾는다. 최근에 바뀐 것부터, 최대 `limit` 개. 정리 위치(`base`) 안의 파일은 뺀다.
+pub fn find_exports(dirs: &[PathBuf], base: &Path, limit: usize) -> Vec<PathBuf> {
+    let mut found: Vec<(std::time::SystemTime, PathBuf)> = Vec::new();
+    for d in dirs {
+        let Ok(rd) = std::fs::read_dir(d) else { continue };
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.starts_with(base) || !p.is_file() {
+                continue;
+            }
+            if !looks_like_export(&e.file_name().to_string_lossy()) {
+                continue;
+            }
+            let t = e.metadata().and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH);
+            found.push((t, p));
+        }
+    }
+    found.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    found.into_iter().take(limit).map(|f| f.1).collect()
+}
+
+fn search_dirs() -> Vec<PathBuf> {
+    let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from) else {
+        return Vec::new();
+    };
+    ["Downloads", "Documents", "Desktop"].iter().map(|d| home.join(d)).collect()
+}
+
+fn ingest_and_report(path: &Path, base: &Path) {
+    let archive = base.join("archive");
+    println!("\n반영합니다: {}", path.display());
+    match crate::ingest_path(&archive, None, path, false, &indexmap::IndexMap::new()) {
+        Ok(r) => {
+            if let Some(c) = r.get("conversation").and_then(Value::as_str) {
+                println!("정리 위치: {}", archive.join(c).display());
+            }
+            for l in summarize(&r) {
+                println!("{l}");
+            }
+        }
+        Err(e) => println!("정리하지 못했습니다 [{}]: {}", e.code, e.message),
+    }
+}
+
+/// Windows 가 아닐 때: 카카오톡 조작(수집)은 못 하므로 직접 내보낸 TXT 를 골라 정리만 한다.
+fn run_files(base: &Path) -> i32 {
+    println!("이 컴퓨터에서는 카카오톡을 자동으로 조작할 수 없습니다 (수집은 Windows 전용).");
+    println!("카카오톡에서 직접 대화를 내보낸 TXT 파일을 고르면 정리해 드립니다.\n");
+    loop {
+        let files = find_exports(&search_dirs(), base, 20);
+        if files.is_empty() {
+            println!("다운로드·문서·바탕화면에서 내보내기 파일(KakaoTalk…txt)을 찾지 못했습니다.");
+        } else {
+            println!("찾은 내보내기 파일 (최근 순):");
+            for (i, f) in files.iter().enumerate() {
+                println!("  {}) {}", i + 1, f.display());
+            }
+        }
+        let Some(line) = prompt("\n번호를 입력하거나 파일을 이 창에 끌어다 놓으세요 (Enter = 종료): ") else { return 0 };
+        if line.trim().is_empty() {
+            return 0;
+        }
+        if let Some(i) = parse_choice(&line, files.len()) {
+            ingest_and_report(&files[i], base);
+        } else {
+            let p = PathBuf::from(clean_path(&line));
+            if p.is_file() {
+                ingest_and_report(&p, base);
+            } else {
+                println!("\n번호나 올바른 파일 경로가 아닙니다.");
+            }
+        }
+        println!();
+    }
+}
+
 pub fn run() -> i32 {
     sys::set_console_utf8();
     let base = base_dir();
-    println!("== 카카오톡 대화 수집 ==");
+    println!("== 카카오톡 대화 정리 ==");
     println!("저장 위치: {}\n", base.display());
     if !sys::SUPPORTED {
-        println!("이 안내 마당은 Windows 에서만 동작합니다. 명령줄 사용법은 `kkt --help` 를 보세요.");
-        return 1;
+        return run_files(&base);
     }
     loop {
         let titles = window::list_chat_titles();
@@ -170,6 +257,38 @@ mod tests {
     fn base_dir_ends_with_downloads_folder() {
         let p = base_dir();
         assert!(p.ends_with(Path::new("Downloads").join(FOLDER_NAME)));
+    }
+
+    #[test]
+    fn path_cleanup() {
+        assert_eq!(clean_path("  '/Users/a/My\\ Files/KakaoTalk_1.txt' \n"), "/Users/a/My Files/KakaoTalk_1.txt");
+        assert_eq!(clean_path("\"C:\\x\\y.txt\""), "C:\\x\\y.txt");
+    }
+
+    #[test]
+    fn export_name_detection() {
+        assert!(looks_like_export("KakaoTalk_20261002_1641_group.txt"));
+        assert!(looks_like_export("kakaotalk chat.TXT"));
+        assert!(!looks_like_export("notes.txt"));
+        assert!(!looks_like_export("KakaoTalk_1.png"));
+    }
+
+    #[test]
+    fn find_exports_orders_and_excludes_base() {
+        let root = std::env::temp_dir().join(format!("kkt-wiz-{}", std::process::id()));
+        let base = root.join("dl").join(FOLDER_NAME);
+        std::fs::create_dir_all(&base).unwrap();
+        let dl = root.join("dl");
+        std::fs::write(dl.join("KakaoTalk_a.txt"), "a").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        std::fs::write(dl.join("KakaoTalk_b.txt"), "b").unwrap();
+        std::fs::write(dl.join("other.txt"), "x").unwrap();
+        std::fs::write(base.join("KakaoTalk_in_base.txt"), "z").unwrap();
+        let v = find_exports(&[dl.clone(), root.join("missing")], &base, 10);
+        let names: Vec<_> = v.iter().map(|p| p.file_name().unwrap().to_string_lossy().to_string()).collect();
+        assert_eq!(names, ["KakaoTalk_b.txt", "KakaoTalk_a.txt"]);
+        assert_eq!(find_exports(&[dl], &base, 1).len(), 1);
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

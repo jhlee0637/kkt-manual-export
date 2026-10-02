@@ -39,7 +39,10 @@ jobs:
           lipo -create -output out/kkt-macos-universal \
             src/rust/target/aarch64-apple-darwin/release/kkt \
             src/rust/target/x86_64-apple-darwin/release/kkt
-          cd out && shasum -a 256 kkt-macos-universal | sed 's/ \*/  /' > kkt-macos-universal.sha256 && cat kkt-macos-universal.sha256 && ls -l
+          # 내려받아 풀었을 때 실행 권한이 남도록 zip 으로 묶는다 (실행 권한 없이는 더블클릭이 안 된다)
+          cd out && zip kkt-macos-universal.zip kkt-macos-universal && rm kkt-macos-universal
+          unzip -Z kkt-macos-universal.zip
+          shasum -a 256 kkt-macos-universal.zip | sed 's/ \*/  /' > kkt-macos-universal.zip.sha256 && cat kkt-macos-universal.zip.sha256 && ls -l
       - uses: actions/upload-artifact@v4
         with:
           name: kkt-macos
