@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = ["crates/kkt-core", "crates/kkt-cli"]
+
+# exe 크기가 최우선 요구사항이다.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

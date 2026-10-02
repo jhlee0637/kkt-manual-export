@@ -1,0 +1,45 @@
+# kkt (Rust)
+
+Python 구현(`kkt/`)의 이식. 기준은 `tests/golden/` 의 골든 시나리오다: 같은 입력에 같은 출력(종료 코드, 표준 출력 JSON,
+오류 코드, 아카이브 파일 해시, `events.jsonl` **바이트**)을 내야 한다.
+
+```
+rust/
+  crates/kkt-core/   핵심 로직 (OS 무관): parse, state, reconcile, link, archive, attach, difflib, pyfmt
+  crates/kkt-cli/    `kkt` 바이너리 (골든이 요구하는 CLI 규격)
+```
+
+## 빌드와 검증
+
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+cd rust && cargo build --release                       # target/release/kkt  (opt-level z, lto, strip)
+cargo test                                             # 단위 테스트 + difflib 차분 테스트
+cd .. && python3 tests/golden/run.py --cmd "rust/target/release/kkt"      # 골든 전체 (어긋난 지점을 보여 줌)
+KKT_GOLDEN_CMD="rust/target/release/kkt" python3 -m pytest tests/test_golden.py
+```
+
+## 두 겹의 안전장치
+
+1. **골든 시나리오** (CLI 수준): 동작이 Python 과 같은지. 임계값 경계와 동률 처리까지 시나리오로 고정되어 있다.
+2. **difflib 차분 테스트** (`crates/kkt-core/tests/difflib_oracle.rs`): `SequenceMatcher` 이식을 Python 이 만든 정답
+   (526개 사례, `tests/data/difflib_cases.json`)과 대조한다. 정답 데이터는 `tests/data/gen_difflib_cases.py` 로 다시 만든다.
+
+## Python 과 같게 맞춘 곳 (바이트가 달라지는 곳)
+
+- 이벤트 JSON: 키 정렬, 구분자 `", "` / `": "`, 한글 비이스케이프 (`pyfmt::dumps`)
+- 내보내기 간 정렬: `difflib.SequenceMatcher(autojunk=False)` 의 가장 긴 일치 블록 우선, 동률은 앞쪽 우선 (`difflib.rs`)
+- 임계값 비교: `f64` 로 `m/c >= 0.6` (정수 비교로 바꾸면 경계에서 달라질 수 있다)
+- 삽입 순서에 의존하는 순회: `IndexMap` (Python dict/Counter 와 같은 순서)
+- 이벤트 방출 순서: `new_id` → `pid_for`(participant.observed) → `message.observed`
+- 줄 구분은 `\r\n`, `\n`, `\r` 만이다 (U+2028 등은 본문)
+- 경고 문구의 `{x!r}`: `pyfmt::repr`
+
+## 알려진 차이와 한계
+
+- `pyfmt::repr` 의 "출력 가능 문자" 판정은 근사다 (유니코드 범주표가 없어 흔한 비출력 문자만 이스케이프). 경고 문구에서만 쓰인다.
+- 정규식의 `\d` 는 ASCII 숫자만 받는다 (Python 은 다른 문자 체계의 숫자도 받는다). 카카오톡 내보내기에서는 ASCII 만 나온다.
+- cp949 디코딩은 `encoding_rs`(WHATWG euc-kr = 통합 완성형)다. Python `cp949` 와 극히 드문 바이트열에서 다를 수 있다.
+- CLI 인자 처리는 argparse 의 일부만 흉내 낸다 (약어 옵션 `--arch` 등과 위치 인자 뒤섞기는 지원하지 않는다).
+- 오류 메시지 문장은 구현마다 달라도 된다 (비교하는 것은 오류 코드뿐이다).
+- Windows 수집 계층(`kkt/win/`)과 GUI 는 아직 이식하지 않았다.

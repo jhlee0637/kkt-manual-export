@@ -75,7 +75,7 @@ python3 -m pytest tests/test_golden.py          # 현재 구현이 계약을 지
 python3 tests/golden/build.py --check           # 커밋된 골든이 최신인지
 python3 tests/golden/build.py                   # 동작을 일부러 바꿨을 때 기대 결과를 다시 만든다 (git diff 로 리뷰)
 
-# 이식한 구현을 시험한다 (어긋난 지점을 보여 준다)
+# 이식한 구현을 시험한다 (어긋난 지점을 보여 준다). Rust 구현은 rust/README.md 참고
 python3 tests/golden/run.py --cmd "rust/target/release/kkt"
 python3 tests/golden/run.py --cmd "rust/target/release/kkt" combined_realworld     # 시나리오 하나만
 KKT_GOLDEN_CMD="rust/target/release/kkt" python3 -m pytest tests/test_golden.py     # pytest 로 (시나리오별 통과 여부)
