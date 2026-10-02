@@ -122,6 +122,11 @@ mod imp {
         fn SetProcessDpiAwarenessContext(ctx: isize) -> i32;
     }
 
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn SetConsoleOutputCP(cp: u32) -> i32;
+    }
+
     #[link(name = "shcore")]
     extern "system" {
         fn SetProcessDpiAwareness(level: i32) -> i32;
@@ -220,6 +225,20 @@ mod imp {
             .into_iter()
             .filter(|&h| unsafe { IsWindowVisible(h) } != 0 && class_of(h) == class && window_title(h) == title)
             .collect()
+    }
+
+    /// 클래스가 `class` 인 보이는 최상위 창 `(hwnd, title)`.
+    pub fn list_top_level(class: &str) -> Vec<(Hwnd, String)> {
+        all_top_level()
+            .into_iter()
+            .filter(|&h| unsafe { IsWindowVisible(h) } != 0 && class_of(h) == class)
+            .map(|h| (h, window_title(h)))
+            .collect()
+    }
+
+    /// 콘솔 출력을 UTF-8 로 맞춘다 (더블클릭으로 연 콘솔의 한글이 깨지지 않게).
+    pub fn set_console_utf8() {
+        unsafe { SetConsoleOutputCP(65001) };
     }
 
     /// 해당 프로세스의 보이는 최상위 창 `(hwnd, class, title)`. 제목 없는 완료 팝업도 포함한다.
@@ -324,6 +343,8 @@ mod stub {
     pub fn foreground() -> Hwnd { 0 }
     pub fn set_foreground(_: Hwnd) {}
     pub fn find_top_level(_: &str, _: &str) -> Vec<Hwnd> { Vec::new() }
+    pub fn list_top_level(_: &str) -> Vec<(Hwnd, String)> { Vec::new() }
+    pub fn set_console_utf8() {}
     pub fn top_level_windows(_: u32) -> Vec<(Hwnd, String, String)> { Vec::new() }
     pub fn top_level_dialogs(_: u32) -> Vec<Hwnd> { Vec::new() }
     pub fn descendants(_: Hwnd) -> Vec<(Hwnd, String, String, i32)> { Vec::new() }

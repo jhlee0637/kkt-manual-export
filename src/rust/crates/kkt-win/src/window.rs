@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 
 pub const CHAT_CLASS: &str = "EVA_Window_Dblclk";
 pub const MAIN_WINDOW_TITLE: &str = "카카오톡";
+pub const DRAWER_TITLE: &str = "채팅방 서랍";
 
 // 실측으로 ≡ 앵커가 동작한 크기: 380x640. 폭은 그대로 두고 높이는 가능하면 더 크게 쓴다.
 pub const DEFAULT_WIDTH: i32 = 380;
@@ -113,6 +114,23 @@ pub fn find_chat_windows(title: &str) -> Result<Vec<Hwnd>, WinError> {
         return Err(WinError::Window("메인 창은 대상이 아니다".into()));
     }
     Ok(sys::find_top_level(CHAT_CLASS, title))
+}
+
+/// 수집할 수 있는 채팅창 제목 목록 (중복 제거, 정렬). 메인 창·서랍·제목 없는 팝업은 제외한다.
+pub fn list_chat_titles() -> Vec<String> {
+    let mut v: Vec<String> = sys::list_top_level(CHAT_CLASS)
+        .into_iter()
+        .map(|(_, t)| t)
+        .filter(|t| is_chat_title(t))
+        .collect();
+    v.sort();
+    v.dedup();
+    v
+}
+
+/// 채팅방 제목으로 볼 수 있는 창 제목인지 (같은 클래스를 쓰는 메인 창, 서랍, 제목 없는 팝업을 거른다).
+pub fn is_chat_title(t: &str) -> bool {
+    !t.is_empty() && t != MAIN_WINDOW_TITLE && t != DRAWER_TITLE
 }
 
 fn get_rect(h: Hwnd) -> Result<Rect, WinError> {
@@ -250,6 +268,14 @@ mod tests {
     #[test]
     fn plan_uses_explicit_position() {
         assert_eq!(plan_rect(r(0, 0, 1, 1), WORK, 380, 800, Some((300, 20)), 8).unwrap(), r(300, 20, 380, 800));
+    }
+
+    #[test]
+    fn chat_title_filter() {
+        assert!(is_chat_title("test-2"));
+        assert!(!is_chat_title(""));
+        assert!(!is_chat_title("카카오톡"));
+        assert!(!is_chat_title("채팅방 서랍"));
     }
 
     #[test]

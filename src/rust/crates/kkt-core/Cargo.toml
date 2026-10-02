@@ -1,6 +1,6 @@
 [package]
 name = "kkt-core"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "카카오톡 내보내기 정리 핵심 로직 (OS 무관). Python 구현과 골든 시나리오로 동등성을 검증한다."
 

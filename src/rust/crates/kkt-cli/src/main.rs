@@ -17,6 +17,8 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+mod wizard;
+
 const USAGE: &str = "usage: kkt [--archive ARCHIVE] [--conversation CONVERSATION] {ingest,attach,status,participants,participant-link,collect} ...";
 
 struct Usage(String);
@@ -207,18 +209,28 @@ fn cmd_ingest(cli: &Cli, files: &[String], force: bool, accept: &[String]) -> Re
     items.sort_by(|a, b| (&a.0, file_name(&a.1)).cmp(&(&b.0, file_name(&b.1)))); // 시간순으로 반영해야 삭제/수정 판정이 맞다
     let accept = parse_accept(accept)?;
     for (_, p, parsed) in &items {
-        // 파일마다 방을 판정한다. 중간에 방 이름이 바뀐 내보내기가 섞여 있어도 이어 붙는다.
-        let (conv, link) = resolve(&cli.archive, parsed, cli.conversation.as_deref(), force)?;
-        let r = Archive::new(&cli.archive, &conv).ingest(p, Some(parsed), force, &accept, Some(&link))?;
-        let mut m = Map::new();
-        m.insert("conversation".into(), conv.into());
-        m.insert("link".into(), link["status"].clone());
-        if let Value::Object(rm) = r {
-            m.extend(rm);
-        }
-        print_line(&Value::Object(m));
+        print_line(&ingest_parsed(&cli.archive, cli.conversation.as_deref(), p, parsed, force, &accept)?);
     }
     Ok(())
+}
+
+/// 파일 하나를 읽어 방을 판정하고 반영한다. 결과 JSON 에 `conversation`, `link` 를 붙여 돌려준다.
+pub(crate) fn ingest_path(archive: &Path, conversation: Option<&str>, p: &Path, force: bool, accept: &IndexMap<String, String>) -> Result<Value> {
+    let parsed = parse_export(&decode_export(&fs::read(p)?)?);
+    ingest_parsed(archive, conversation, p, &parsed, force, accept)
+}
+
+fn ingest_parsed(archive: &Path, conversation: Option<&str>, p: &Path, parsed: &ParsedExport, force: bool, accept: &IndexMap<String, String>) -> Result<Value> {
+    // 파일마다 방을 판정한다. 중간에 방 이름이 바뀐 내보내기가 섞여 있어도 이어 붙는다.
+    let (conv, link) = resolve(archive, parsed, conversation, force)?;
+    let r = Archive::new(archive, &conv).ingest(p, Some(parsed), force, accept, Some(&link))?;
+    let mut m = Map::new();
+    m.insert("conversation".into(), conv.into());
+    m.insert("link".into(), link["status"].clone());
+    if let Value::Object(rm) = r {
+        m.extend(rm);
+    }
+    Ok(Value::Object(m))
 }
 
 fn count_by<F: Fn(&kkt_core::state::Record) -> Option<String>>(st: &kkt_core::state::State, f: F) -> Map<String, Value> {
@@ -309,6 +321,10 @@ fn run(cli: &Cli) -> Result<()> {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // 인자 없이 실행(더블클릭)하면 안내 마당을 연다. `kkt wizard` 로도 연다.
+    if args.is_empty() || args == ["wizard"] {
+        std::process::exit(wizard::run());
+    }
     let cli = match parse_args(&args) {
         Ok(c) => c,
         Err(Usage(msg)) => {

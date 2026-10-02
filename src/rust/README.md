@@ -10,6 +10,13 @@ src/rust/
   crates/kkt-cli/    `kkt` 바이너리 (골든이 요구하는 CLI 규격 + `collect`)
 ```
 
+## 더블클릭으로 쓰기
+인자 없이 `kkt.exe` 를 실행(더블클릭)하면 안내 마당이 뜬다 (`kkt wizard` 도 같다). 열려 있는 카카오톡 방 목록에서 번호를 고르면
+수집(`collect`)부터 정리(`ingest`)까지 한 번에 하고, 결과를 문장으로 보여 준다. Windows 전용이다.
+- 저장 위치: `다운로드\kkt-manual-export-archive` (`archive/` 정리 결과, `exports/` 내보내기 TXT)
+- 같은 방을 다시 고르면 달라진 것만 반영한다.
+- 인자를 주면 지금처럼 명령줄로 동작한다.
+
 ## 빌드와 검증
 
 ```bash
