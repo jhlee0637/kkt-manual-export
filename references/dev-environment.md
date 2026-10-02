@@ -11,7 +11,7 @@
 - PowerShell 출력의 한글이 깨져 보인다(cp949). 필요하면 `[Console]::OutputEncoding`을 UTF-8로 바꾼다.
 - bash에서 PowerShell 명령을 넘길 때 `$`를 이스케이프하거나 작은따옴표로 감싼다.
 - PowerShell 함수 이름이 별칭과 충돌한다(`Mv`가 `Move-Item`). `Add-Type`의 C# 코드는 `System.Drawing` 참조를 명시한다.
-- Rust: `~/.cargo/bin`이 PATH에 없다. `export PATH="$HOME/.cargo/bin:$PATH"`를 먼저 실행한다. Windows용 빌드는 링커가 없어 불가능하다.
+- Rust: `~/.cargo/bin`이 PATH에 없다. `export PATH="$HOME/.cargo/bin:$PATH"`를 먼저 실행한다. Windows용 실행 파일은 WSL에서 링크할 수 없다(Windows SDK 라이브러리 필요). `cargo check --target x86_64-pc-windows-msvc`로 타입만 확인한다. Windows에는 Rust(rustup, MSVC)와 VS Build Tools(C++)가 설치되어 있다. 빌드는 `powershell.exe`에서 `CARGO_TARGET_DIR`을 Windows 로컬 경로로 지정하고 UNC 경로의 `src\rust`에서 `cargo build --release`.
 - `sudo`는 비밀번호가 필요해서 에이전트가 쓸 수 없다. 필요하면 사용자에게 명령을 요청한다.
 - 외부에서 받은 코드의 실행은 자동으로 차단된다. 사용자 승인이 필요하다. 클론은 `references/other-projects/`에 있고 gitignore이다.
 - 임시 파일은 작업용 scratchpad 폴더에 둔다. 사용이 끝나면 지운다.

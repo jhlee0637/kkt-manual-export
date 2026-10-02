@@ -17,7 +17,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-const USAGE: &str = "usage: kkt [--archive ARCHIVE] [--conversation CONVERSATION] {ingest,attach,status,participants,participant-link} ...";
+const USAGE: &str = "usage: kkt [--archive ARCHIVE] [--conversation CONVERSATION] {ingest,attach,status,participants,participant-link,collect} ...";
 
 struct Usage(String);
 
@@ -51,6 +51,7 @@ enum Cmd {
     Status,
     Participants,
     ParticipantLink { keep: String, merge: String },
+    Collect { title: String, out: String, width: i32, height: i32, hold: f64, ingest: bool },
 }
 
 struct Cli {
@@ -128,6 +129,33 @@ fn parse_args(args: &[String]) -> std::result::Result<Cli, Usage> {
             match (keep, merge) {
                 (Some(keep), Some(merge)) => Cmd::ParticipantLink { keep, merge },
                 _ => return usage_err("the following arguments are required: --keep, --merge"),
+            }
+        }
+        "collect" => {
+            let (mut title, mut out, mut width, mut height, mut hold, mut ingest) =
+                (None, None, kkt_win::window::DEFAULT_WIDTH, kkt_win::window::DEFAULT_HEIGHT, 0.0, false);
+            let mut j = 0;
+            while j < rest.len() {
+                if rest[j] == "--ingest" {
+                    ingest = true;
+                } else if let Some(v) = opt(rest, &mut j, "--title")? {
+                    title = Some(v);
+                } else if let Some(v) = opt(rest, &mut j, "--out")? {
+                    out = Some(v);
+                } else if let Some(v) = opt(rest, &mut j, "--width")? {
+                    width = v.parse().or_else(|_| usage_err(format!("--width: invalid int value: {v:?}")))?;
+                } else if let Some(v) = opt(rest, &mut j, "--height")? {
+                    height = v.parse().or_else(|_| usage_err(format!("--height: invalid int value: {v:?}")))?;
+                } else if let Some(v) = opt(rest, &mut j, "--hold")? {
+                    hold = v.parse().or_else(|_| usage_err(format!("--hold: invalid float value: {v:?}")))?;
+                } else {
+                    return usage_err(format!("unrecognized arguments: {}", rest[j]));
+                }
+                j += 1;
+            }
+            match (title, out) {
+                (Some(title), Some(out)) => Cmd::Collect { title, out, width, height, hold, ingest },
+                _ => return usage_err("the following arguments are required: --title, --out"),
             }
         }
         other => return usage_err(format!("argument cmd: invalid choice: {other:?}")),
@@ -236,6 +264,32 @@ fn cmd_participants(cli: &Cli) -> Result<()> {
     Ok(())
 }
 
+/// 카카오톡 창을 조작해 내보내기 TXT 를 저장한다 (Windows 전용). 종료 코드: 성공 0, 실패 1, Ctrl+D 중단 130.
+fn cmd_collect(cli: &Cli, title: &str, out: &str, width: i32, height: i32, hold: f64, ingest: bool) -> i32 {
+    use kkt_win::{collect, guard::Guard, WinError};
+    let opt = collect::Options { width, height, hold, ..Default::default() };
+    let meta = match collect::export_chat(title, Path::new(out), &Guard::new(), &opt) {
+        Ok(m) => m,
+        Err(WinError::Aborted) => {
+            eprintln!("[중단] Ctrl+D 로 중단됨");
+            return 130;
+        }
+        Err(e) => {
+            eprintln!("[실패] {e}");
+            return 1;
+        }
+    };
+    print_line(&meta);
+    if ingest {
+        let path = meta["path"].as_str().unwrap_or_default().to_string();
+        if let Err(e) = cmd_ingest(cli, &[path], false, &[]) {
+            eprintln!("[중단:{}] {}", e.code, e.message);
+            return 1;
+        }
+    }
+    0
+}
+
 fn run(cli: &Cli) -> Result<()> {
     match &cli.cmd {
         Cmd::Ingest { files, force, accept } => cmd_ingest(cli, files, *force, accept),
@@ -243,6 +297,7 @@ fn run(cli: &Cli) -> Result<()> {
             print_pretty(&ingest_attachments(&arch(cli)?, Path::new(src))?);
             Ok(())
         }
+        Cmd::Collect { .. } => unreachable!("main 에서 처리한다"),
         Cmd::Status => cmd_status(cli),
         Cmd::Participants => cmd_participants(cli),
         Cmd::ParticipantLink { keep, merge } => {
@@ -261,6 +316,9 @@ fn main() {
             std::process::exit(2);
         }
     };
+    if let Cmd::Collect { title, out, width, height, hold, ingest } = &cli.cmd {
+        std::process::exit(cmd_collect(&cli, title, out, *width, *height, *hold, *ingest));
+    }
     if let Err(e) = run(&cli) {
         eprintln!("[중단:{}] {}", e.code, e.message);
         std::process::exit(1);

@@ -110,6 +110,7 @@ version = "0.1.0"
 dependencies = [
  "indexmap",
  "kkt-core",
+ "kkt-win",
  "serde_json",
 ]
 
@@ -124,6 +125,13 @@ dependencies = [
  "serde_json",
  "sha1",
  "sha2",
+]
+
+[[package]]
+name = "kkt-win"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]

@@ -1,0 +1,9 @@
+[package]
+name = "kkt-win"
+version = "0.1.0"
+edition = "2021"
+
+# 카카오톡 창을 조작하는 수집 계층 (src/python/kkt/win 의 이식).
+# exe 크기가 최우선이라 windows-sys 같은 크레이트 없이 필요한 Win32 함수만 직접 선언한다.
+[dependencies]
+serde_json = "1"

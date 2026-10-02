@@ -6,7 +6,8 @@ Python 구현(`src/python/kkt/`)의 이식. 기준은 `tests/golden/` 의 골든
 ```
 src/rust/
   crates/kkt-core/   핵심 로직 (OS 무관): parse, state, reconcile, link, archive, attach, difflib, pyfmt
-  crates/kkt-cli/    `kkt` 바이너리 (골든이 요구하는 CLI 규격)
+  crates/kkt-win/    카카오톡 창 조작 수집 계층 (Windows 전용. 다른 OS 에서는 "Windows 에서만 동작한다"로 실패). Win32 는 직접 선언
+  crates/kkt-cli/    `kkt` 바이너리 (골든이 요구하는 CLI 규격 + `collect`)
 ```
 
 ## 빌드와 검증
@@ -42,4 +43,10 @@ KKT_GOLDEN_CMD="src/rust/target/release/kkt" python3 -m pytest tests/python/test
 - cp949 디코딩은 `encoding_rs`(WHATWG euc-kr = 통합 완성형)다. Python `cp949` 와 극히 드문 바이트열에서 다를 수 있다.
 - CLI 인자 처리는 argparse 의 일부만 흉내 낸다 (약어 옵션 `--arch` 등과 위치 인자 뒤섞기는 지원하지 않는다).
 - 오류 메시지 문장은 구현마다 달라도 된다 (비교하는 것은 오류 코드뿐이다).
-- Windows 수집 계층(`src/python/kkt/win/`)과 GUI 는 아직 이식하지 않았다.
+- 수집 계층(`kkt-win`)은 Python(`src/python/kkt/win/`)의 이식이다. Windows 에서 실제 카카오톡으로 확인했다:
+  내보내기 성공(경고 없음, 창 크기 복원), `Ctrl+D` 중단(종료 코드 130, 대화상자 정리, 창 위치 그대로). 생성한 TXT 를 Python 과 Rust 가
+  반영한 `events.jsonl` 은 바이트가 같았다. 미확인: 최소화·최대화 상태의 창, 배율 100%가 아닌 화면, 다른 PC.
+- WSL 에서는 Windows 용 실행 파일을 링크할 수 없다. 표준 라이브러리가 `kernel32.lib` 등 Windows SDK 라이브러리를 요구한다.
+  타입 확인만 `cargo check --release --target x86_64-pc-windows-msvc` 로 한다. 빌드는 Windows 에서 한다
+  (`rustup` + Visual Studio Build Tools 의 "C++를 사용한 데스크톱 개발"). 결과 `kkt.exe` 는 약 680KB.
+- GUI 는 아직 없다.
