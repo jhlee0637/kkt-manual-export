@@ -1,0 +1,39 @@
+{
+  "description": "종결 이벤트 없는 로그 꼬리(크래시)는 읽을 때 무시하고 다음 쓰기에서 잘라냄",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "op": "append_text",
+      "path": "{archive}/kt_golden/events.jsonl",
+      "text": "{\"type\": \"message.observed\", \"event_id\": \"ev_999999\", \"schema_version\": 2}\n"
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "status"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e2.txt"
+      ]
+    }
+  ]
+}

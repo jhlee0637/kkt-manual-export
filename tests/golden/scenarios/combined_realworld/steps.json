@@ -1,0 +1,44 @@
+{
+  "description": "실측 시나리오: 삭제+수정, 이후 로컬 삭제. 사진·이모티콘·답장(인용 없이 본문만)·여러 줄 메시지",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e2.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e3.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "status"
+      ]
+    }
+  ]
+}

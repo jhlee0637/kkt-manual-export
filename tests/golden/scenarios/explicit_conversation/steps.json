@@ -1,0 +1,36 @@
+{
+  "description": "--conversation 으로 지정했지만 거의 겹치지 않으면 중단, --force 로 통과",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_a",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_a",
+        "ingest",
+        "{dir}/e2.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_a",
+        "ingest",
+        "{dir}/e2.txt",
+        "--force"
+      ]
+    }
+  ]
+}

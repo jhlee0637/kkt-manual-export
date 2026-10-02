@@ -1,0 +1,44 @@
+{
+  "description": "사진 연결: 같은 분의 사진 수와 파일 수가 같을 때만 시간순 연결, 중복 저장본은 alias, 남의 파일은 무시",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "attach",
+        "{dir}/photos"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "attach",
+        "{dir}/photos"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "status"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "description": "같은 입력을 처음부터 --accept-rename 과 함께 반영하면 forced_by_user 로 확정",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e2.txt",
+        "--accept-rename",
+        "철수=철수샘"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "participants"
+      ]
+    }
+  ]
+}

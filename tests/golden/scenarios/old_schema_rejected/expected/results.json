@@ -1,0 +1,21 @@
+[
+  {
+    "op": "write_file",
+    "step": 0
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "status"
+    ],
+    "error_codes": [
+      "schema_too_old"
+    ],
+    "exit": 1,
+    "stdout": [],
+    "step": 1
+  }
+]

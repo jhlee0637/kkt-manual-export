@@ -1,0 +1,99 @@
+[
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "ingest",
+      "{dir}/p1.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_c83a39494e",
+        "events": {
+          "conversation.title_observed": 1,
+          "message.observed": 5,
+          "participant.observed": 1
+        },
+        "export": "p1.txt",
+        "link": "new",
+        "warnings": []
+      }
+    ],
+    "step": 0
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "ingest",
+      "{dir}/p2.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_c83a39494e",
+        "events": {
+          "conversation.renamed": 1,
+          "message.missing": 2,
+          "message.observed": 2,
+          "participant.observed": 1
+        },
+        "export": "p2.txt",
+        "link": "renamed_room",
+        "warnings": []
+      }
+    ],
+    "step": 1
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "ingest",
+      "{dir}/r1.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_831fd3443f",
+        "events": {
+          "conversation.title_observed": 1,
+          "message.observed": 6,
+          "participant.observed": 1
+        },
+        "export": "r1.txt",
+        "link": "new",
+        "warnings": []
+      }
+    ],
+    "step": 2
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "ingest",
+      "{dir}/r2.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_831fd3443f",
+        "events": {
+          "message.missing": 3,
+          "message.observed": 3,
+          "participant.observed": 1
+        },
+        "export": "r2.txt",
+        "link": "same",
+        "warnings": []
+      }
+    ],
+    "step": 3
+  }
+]

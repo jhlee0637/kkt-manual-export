@@ -1,0 +1,173 @@
+[
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e1.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_golden",
+        "events": {
+          "conversation.title_observed": 1,
+          "message.observed": 4,
+          "participant.observed": 3,
+          "system.observed": 1
+        },
+        "export": "e1.txt",
+        "link": "explicit",
+        "warnings": []
+      }
+    ],
+    "step": 0
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e2.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_golden",
+        "events": {
+          "message.observed": 1,
+          "participant.renamed": 1
+        },
+        "export": "e2.txt",
+        "link": "explicit",
+        "warnings": []
+      }
+    ],
+    "step": 1
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e3.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_golden",
+        "events": {
+          "message.observed": 1
+        },
+        "export": "e3.txt",
+        "link": "explicit",
+        "warnings": []
+      }
+    ],
+    "step": 2
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e4.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_golden",
+        "events": {
+          "participant.renamed": 1
+        },
+        "export": "e4.txt",
+        "link": "explicit",
+        "warnings": []
+      }
+    ],
+    "step": 3
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e5.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_golden",
+        "events": {
+          "message.observed": 1
+        },
+        "export": "e5.txt",
+        "link": "explicit",
+        "warnings": []
+      }
+    ],
+    "step": 4
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "participants"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "participants": [
+          {
+            "current": "철수",
+            "id": "kp_0129c475f93a5c2f",
+            "messages": 3,
+            "names": [
+              "철수",
+              "철수샘"
+            ]
+          },
+          {
+            "current": "민수",
+            "id": "kp_97b6d13ba46540d4",
+            "messages": 2,
+            "names": [
+              "민수"
+            ]
+          },
+          {
+            "current": "지영",
+            "id": "kp_de4e3610479ac82c",
+            "messages": 2,
+            "names": [
+              "지영"
+            ]
+          }
+        ],
+        "title": "회의방",
+        "titles": [
+          "회의방"
+        ]
+      }
+    ],
+    "step": 5
+  }
+]

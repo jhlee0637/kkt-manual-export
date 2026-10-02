@@ -27,7 +27,7 @@ def decode_export(b: bytes) -> str:
             return b.decode(enc)
         except UnicodeDecodeError:
             continue
-    raise IngestError("내보내기 파일의 인코딩을 알 수 없다 (utf-8, cp949 둘 다 실패)")
+    raise IngestError("내보내기 파일의 인코딩을 알 수 없다 (utf-8, cp949 둘 다 실패)", "bad_encoding")
 
 
 def default_conversation_id(title: str | None) -> str:
@@ -86,9 +86,9 @@ class Archive:
         by_name = {p["current"]: p["id"] for p in state.participants.values()}
         for n in (keep_name, merge_name):
             if n not in by_name:
-                raise IngestError(f"현재 이름이 {n!r}인 참가자가 없다: {sorted(by_name)}")
+                raise IngestError(f"현재 이름이 {n!r}인 참가자가 없다: {sorted(by_name)}", "participant_not_found")
         if keep_name == merge_name:
-            raise IngestError("같은 참가자를 합칠 수 없다")
+            raise IngestError("같은 참가자를 합칠 수 없다", "participant_same")
         base = {"conversation_id": self.conversation_id,
                 "observed_at": (state.ingests[-1]["saved_at"] if state.ingests else None)}
         events = [{**base, "type": "participant.linked", "participant_id": by_name[keep_name],

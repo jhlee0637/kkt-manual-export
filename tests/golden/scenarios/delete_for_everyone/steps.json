@@ -1,0 +1,44 @@
+{
+  "description": "모두에게 삭제는 같은 자리의 삭제 표식으로 확정, 표식은 이후에도 유지, 사진 삭제도 같은 표식",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e2.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e3.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "status"
+      ]
+    }
+  ]
+}

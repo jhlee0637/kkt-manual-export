@@ -1,0 +1,19 @@
+{
+  "description": "스키마 v1 로그는 조용히 잘못 읽지 않고 schema_too_old 로 거부",
+  "steps": [
+    {
+      "op": "write_file",
+      "path": "{archive}/kt_golden/events.jsonl",
+      "text": "{\"type\": \"export.ingested\", \"event_id\": \"ev_000001\", \"schema_version\": 1, \"visible\": [], \"export_name\": \"x\", \"export_sha256\": \"x\", \"saved_at\": \"x\"}\n"
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "status"
+      ]
+    }
+  ]
+}

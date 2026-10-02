@@ -1,0 +1,37 @@
+{
+  "description": "겹침 비율의 경계값: 제목이 새로울 때 정확히 60% 면 이름 변경, 제목이 같을 때 정확히 50% 면 같은 방 (둘 다 '이상'이다)",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "ingest",
+        "{dir}/p1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "ingest",
+        "{dir}/p2.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "ingest",
+        "{dir}/r1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "ingest",
+        "{dir}/r2.txt"
+      ]
+    }
+  ]
+}

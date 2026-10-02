@@ -1,0 +1,36 @@
+{
+  "description": "수정은 같은 위치·분·보낸이에서 내용만 바뀐 후보. 같은 분에 여럿이고 개수가 다르면 짝짓지 않음",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e2.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e3.txt",
+        "--force"
+      ]
+    }
+  ]
+}

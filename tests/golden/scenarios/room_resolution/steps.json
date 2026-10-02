@@ -1,0 +1,45 @@
+{
+  "description": "방 판정: 무관한 내용은 새 방, 같은 제목 다른 내용/일부 겹침은 중단, 같은 제목은 같은 방",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "ingest",
+        "{dir}/e2.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "ingest",
+        "{dir}/e3.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "ingest",
+        "{dir}/e4.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "ingest",
+        "{dir}/e5.txt"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "description": "새 내보내기가 더 늦은 날짜부터 시작하면 사라진 항목은 삭제가 아니라 unverifiable",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e2.txt",
+        "--force"
+      ]
+    }
+  ]
+}

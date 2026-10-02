@@ -16,7 +16,7 @@ from .state import SchemaError
 
 def _arch(args) -> Archive:
     if not args.conversation:
-        raise IngestError("--conversation 이 필요하다")
+        raise IngestError("--conversation 이 필요하다", "usage")
     return Archive(Path(args.archive), args.conversation)
 
 
@@ -25,7 +25,7 @@ def _parse_accept(values) -> dict:
     for v in values or []:
         old, sep, new = v.partition("=")
         if not sep or not old or not new:
-            raise IngestError(f"--accept-rename 형식은 '옛이름=새이름' 이다: {v!r}")
+            raise IngestError(f"--accept-rename 형식은 '옛이름=새이름' 이다: {v!r}", "usage")
         out[old] = new
     return out
 
@@ -49,7 +49,7 @@ def cmd_ingest(args) -> int:
                 p, parsed=parsed, force=args.force, accept_renames=accept, link=link)
             print(json.dumps({"conversation": conv, "link": link["status"], **r}, ensure_ascii=False))
     except (IngestError, SchemaError) as e:
-        print(f"[중단] {e}", file=sys.stderr)
+        print(f"[중단:{e.code}] {e}", file=sys.stderr)
         return 1
     return 0
 
@@ -69,7 +69,7 @@ def cmd_participant_link(args) -> int:
     try:
         print(json.dumps(_arch(args).link_participants(args.keep, args.merge), ensure_ascii=False))
     except IngestError as e:
-        print(f"[중단] {e}", file=sys.stderr)
+        print(f"[중단:{e.code}] {e}", file=sys.stderr)
         return 1
     return 0
 
@@ -126,7 +126,7 @@ def main(argv=None) -> int:
     try:
         return args.fn(args)
     except (IngestError, SchemaError) as e:
-        print(f"[중단] {e}", file=sys.stderr)
+        print(f"[중단:{e.code}] {e}", file=sys.stderr)
         return 1
 
 

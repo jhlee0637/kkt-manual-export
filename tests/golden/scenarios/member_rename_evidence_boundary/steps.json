@@ -1,0 +1,45 @@
+{
+  "description": "자동 확정에 필요한 근거는 정확히 2건: (메시지 1 + 시스템 줄 1) 또는 (메시지 2 + 시스템 줄 없음)이면 확정",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_a",
+        "ingest",
+        "{dir}/a1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_a",
+        "ingest",
+        "{dir}/a2.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_b",
+        "ingest",
+        "{dir}/b1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_b",
+        "ingest",
+        "{dir}/b2.txt"
+      ]
+    }
+  ]
+}

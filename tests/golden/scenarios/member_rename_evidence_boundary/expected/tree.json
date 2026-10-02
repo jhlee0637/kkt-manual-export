@@ -1,0 +1,26 @@
+{
+  "kt_a/events.jsonl": {
+    "sha256": "17917c4f87769b7db07b89747b9d48864d4e447f7664eed995ec787dff403d6c",
+    "size": 4562
+  },
+  "kt_a/raw/a1.txt": {
+    "sha256": "79c7a9f2a78a4376a5b506466ea84622fcd6f7ae7c6f52b54ddd42eccd724936",
+    "size": 279
+  },
+  "kt_a/raw/a2.txt": {
+    "sha256": "9d2fec89ad8babcb76bcb0a2c52e860c92f9fd59c50e65cec3aa2a271c00f62e",
+    "size": 285
+  },
+  "kt_b/events.jsonl": {
+    "sha256": "94111208e7822bab9bf7756ceea89d5f473c9082606dad6b4945d07247cd6153",
+    "size": 4000
+  },
+  "kt_b/raw/b1.txt": {
+    "sha256": "759c15a153d81830ce31fc36560b2f2fc157f46fa6fff9fe1c5532b0b31a711e",
+    "size": 226
+  },
+  "kt_b/raw/b2.txt": {
+    "sha256": "8428bdf3f8645b22dbf1b469460f6ceb07e0f38eefc9a914d7133a18cf703a3d",
+    "size": 232
+  }
+}

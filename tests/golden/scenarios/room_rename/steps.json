@@ -1,0 +1,29 @@
+{
+  "description": "방 이름 변경: 제목이 처음이어도 메시지 겹침으로 같은 방으로 이어짐 (--conversation 없이 판정)",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "ingest",
+        "{dir}/e2.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "ingest",
+        "{dir}/e3.txt"
+      ]
+    }
+  ]
+}

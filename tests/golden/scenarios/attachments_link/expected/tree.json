@@ -1,0 +1,30 @@
+{
+  "kt_golden/attachments/image/36/3631832fe3da6724496ea48556c677886ed35dcdc8e13c8265c8ec7e4faf3edc.png": {
+    "sha256": "3631832fe3da6724496ea48556c677886ed35dcdc8e13c8265c8ec7e4faf3edc",
+    "size": 16
+  },
+  "kt_golden/attachments/image/99/99928cf40312b854bb76062c7c21125fa19f5804c20065d3eae98490232dbec4.png": {
+    "sha256": "99928cf40312b854bb76062c7c21125fa19f5804c20065d3eae98490232dbec4",
+    "size": 16
+  },
+  "kt_golden/attachments/image/a9/a9cb64763ce86958b0591eaa5fdebd6a389ff0d0b961945a3c1dad722147ba2f.png": {
+    "sha256": "a9cb64763ce86958b0591eaa5fdebd6a389ff0d0b961945a3c1dad722147ba2f",
+    "size": 16
+  },
+  "kt_golden/attachments/image/e8/e8386980eeb99878e0ad1beaf23fd0e5960c9eb89855aca95375799c9f075faf.png": {
+    "sha256": "e8386980eeb99878e0ad1beaf23fd0e5960c9eb89855aca95375799c9f075faf",
+    "size": 16
+  },
+  "kt_golden/attachments/image/f5/f55a95e0b77eaa76adf8beacdce8e50f13f9f414e5a8aa7f321a284a3dd4fedf.png": {
+    "sha256": "f55a95e0b77eaa76adf8beacdce8e50f13f9f414e5a8aa7f321a284a3dd4fedf",
+    "size": 16
+  },
+  "kt_golden/events.jsonl": {
+    "sha256": "b747e3e3075e27387ae36e034af2b261c85f0fdba17b59d0169e1e834bb54618",
+    "size": 7492
+  },
+  "kt_golden/raw/e1.txt": {
+    "sha256": "43c24ecb58ad5ef392d2c562a16409def6d9b28b927ef574f4671a53e06bdff1",
+    "size": 268
+  }
+}

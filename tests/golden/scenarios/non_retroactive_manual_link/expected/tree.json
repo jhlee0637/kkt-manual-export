@@ -1,0 +1,18 @@
+{
+  "kt_golden/events.jsonl": {
+    "sha256": "1a4564892493e54f00b5fcd544e1248485afa3f9aa9fcc02e8789377bc1a18a7",
+    "size": 7651
+  },
+  "kt_golden/raw/e1.txt": {
+    "sha256": "e26debb141ec8bbea6e3df61f00da94f36636690760814dca6badb987ed72828",
+    "size": 344
+  },
+  "kt_golden/raw/e2.txt": {
+    "sha256": "a1b3e8d66c7b641d99225dcf355c3f371ed7f9f1ceb71035bb5fee3ff47fa536",
+    "size": 389
+  },
+  "kt_golden/raw/e3.txt": {
+    "sha256": "939c9c18393b9d0f881bba48811b3cc981473486688b69b834c0cfba45f66f54",
+    "size": 417
+  }
+}

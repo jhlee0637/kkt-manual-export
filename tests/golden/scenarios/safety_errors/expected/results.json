@@ -1,0 +1,103 @@
+[
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e1.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_golden",
+        "events": {
+          "conversation.title_observed": 1,
+          "message.observed": 5,
+          "participant.observed": 2
+        },
+        "export": "e1.txt",
+        "link": "explicit",
+        "warnings": []
+      }
+    ],
+    "step": 0
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e2.txt"
+    ],
+    "error_codes": [
+      "mass_loss"
+    ],
+    "exit": 1,
+    "stdout": [],
+    "step": 1
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e3.txt"
+    ],
+    "error_codes": [
+      "empty_export"
+    ],
+    "exit": 1,
+    "stdout": [],
+    "step": 2
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e2.txt",
+      "--force"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_golden",
+        "events": {
+          "message.missing": 3
+        },
+        "export": "e2.txt",
+        "link": "explicit",
+        "warnings": []
+      }
+    ],
+    "step": 3
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e1.txt",
+      "--accept-rename",
+      "형식오류"
+    ],
+    "error_codes": [
+      "usage"
+    ],
+    "exit": 1,
+    "stdout": [],
+    "step": 4
+  }
+]

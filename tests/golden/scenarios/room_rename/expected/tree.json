@@ -1,0 +1,18 @@
+{
+  "kt_3473dc9580/events.jsonl": {
+    "sha256": "525d52700b67264f15c60a5d7c38a2a5cedbb3d27aedf92940ff1c635f6e7d36",
+    "size": 7369
+  },
+  "kt_3473dc9580/raw/e1.txt": {
+    "sha256": "ef11a956e3dbd296b322583bab87bf21153f15b58f991195583f702fa78e5324",
+    "size": 348
+  },
+  "kt_3473dc9580/raw/e2.txt": {
+    "sha256": "128cce79fa4cd8bdcdc96f86f6cf13f88cd6e8a06092534e93ed9940b57701d9",
+    "size": 386
+  },
+  "kt_3473dc9580/raw/e3.txt": {
+    "sha256": "1946d085429d54a7112477fff71f85eac9c1d2dd124d1aac09062e995f43fefb",
+    "size": 414
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "description": "근거가 약한 이름 변경(메시지 1건, 시스템 줄 없음)은 확정하지 않고 경고, --accept-rename 으로 확정",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e2.txt",
+        "--force"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e2.txt",
+        "--accept-rename",
+        "철수=철수샘"
+      ]
+    }
+  ]
+}

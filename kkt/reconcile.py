@@ -19,7 +19,11 @@ from .state import State, ident_of, key_of, relabel_text
 
 
 class IngestError(Exception):
-    pass
+    """처리를 중단해야 하는 오류. message 는 사람용(한국어), code 는 구현이 바뀌어도 변하지 않는 계약이다."""
+
+    def __init__(self, message: str, code: str = "ingest_error"):
+        super().__init__(message)
+        self.code = code
 
 
 def _iso(date: str, hhmm: str) -> str:
@@ -142,7 +146,7 @@ def reconcile(state: State, parsed: ParsedExport, *, conversation_id: str,
     """이벤트 목록을 반환한다 (event_id는 호출자가 부여). 상태는 바꾸지 않는다."""
     new = parsed.entries
     if not new and state.visible:
-        raise IngestError("새 내보내기에 항목이 없다. 빈 파일이거나 형식이 바뀌었을 수 있다.")
+        raise IngestError("새 내보내기에 항목이 없다. 빈 파일이거나 형식이 바뀌었을 수 있다.", "empty_export")
 
     reg = state.registry
     observed_at = parsed.saved_at
@@ -229,7 +233,8 @@ def reconcile(state: State, parsed: ParsedExport, *, conversation_id: str,
     if not force and n_active >= 4 and n_lost * 2 > n_active:
         raise IngestError(
             f"활성 메시지 {n_active}개 중 {n_lost}개가 사라졌다. 이 PC의 대화 내역이 지워졌거나 "
-            "내보내기 범위가 달라졌을 수 있다. 확인 후 --force로 다시 실행."
+            "내보내기 범위가 달라졌을 수 있다. 확인 후 --force로 다시 실행.",
+            "mass_loss",
         )
 
     events.append({

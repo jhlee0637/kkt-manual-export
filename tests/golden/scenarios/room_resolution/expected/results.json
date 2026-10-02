@@ -1,0 +1,100 @@
+[
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "ingest",
+      "{dir}/e1.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_e3e99ce274",
+        "events": {
+          "conversation.title_observed": 1,
+          "message.observed": 5,
+          "participant.observed": 2
+        },
+        "export": "e1.txt",
+        "link": "new",
+        "warnings": []
+      }
+    ],
+    "step": 0
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "ingest",
+      "{dir}/e2.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_7cf971a31f",
+        "events": {
+          "conversation.title_observed": 1,
+          "message.observed": 3,
+          "participant.observed": 2
+        },
+        "export": "e2.txt",
+        "link": "new",
+        "warnings": []
+      }
+    ],
+    "step": 1
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "ingest",
+      "{dir}/e3.txt"
+    ],
+    "error_codes": [
+      "room_title_ambiguous"
+    ],
+    "exit": 1,
+    "stdout": [],
+    "step": 2
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "ingest",
+      "{dir}/e4.txt"
+    ],
+    "error_codes": [
+      "room_rename_ambiguous"
+    ],
+    "exit": 1,
+    "stdout": [],
+    "step": 3
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "ingest",
+      "{dir}/e5.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_e3e99ce274",
+        "events": {
+          "message.observed": 1
+        },
+        "export": "e5.txt",
+        "link": "same",
+        "warnings": []
+      }
+    ],
+    "step": 4
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "kt_831fd3443f/events.jsonl": {
+    "sha256": "c76cc9fe5c0119c3952e7609695f63a4bee611965a198e3e241c01a0a67d9334",
+    "size": 8486
+  },
+  "kt_831fd3443f/raw/r1.txt": {
+    "sha256": "e59a29f0b90e396f823c8a66d0110e9193d77da8119280e63c6579916bafb219",
+    "size": 299
+  },
+  "kt_831fd3443f/raw/r2.txt": {
+    "sha256": "738c47c638738e1de834bf8419bb197a852ef1439f3b5ac68c7f25a083c5ea10",
+    "size": 308
+  },
+  "kt_c83a39494e/events.jsonl": {
+    "sha256": "40909335b007daf303991ad85652e3e39f36bfe67228b073eadb287f3a814164",
+    "size": 7267
+  },
+  "kt_c83a39494e/raw/p1.txt": {
+    "sha256": "1527f57818da67eaf61588ee7483eba144f0f999c46be01999c75f6df8c7f9aa",
+    "size": 272
+  },
+  "kt_c83a39494e/raw/p2.txt": {
+    "sha256": "abb2b4887bb94cd7fa1a4bed403c7a012d89c76decdc94d7d93663bf697ef5bb",
+    "size": 278
+  }
+}

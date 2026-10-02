@@ -1,0 +1,25 @@
+{
+  "description": "UTF-8 BOM, CP949, 오전/오후 12시, 여러 줄 메시지, 날짜 헤더가 둘, 이모티콘",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e2.txt"
+      ]
+    }
+  ]
+}

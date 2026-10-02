@@ -16,6 +16,8 @@ from . import SCHEMA_VERSION
 class SchemaError(Exception):
     """이벤트 로그가 현재 코드가 이해하는 버전보다 오래됐다."""
 
+    code = "schema_too_old"
+
 
 TERMINATORS = {"export.ingested", "attach.committed", "state.committed"}
 

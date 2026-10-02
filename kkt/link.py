@@ -68,7 +68,7 @@ def resolve(root: Path, parsed: ParsedExport, hint: str | None = None, force: bo
         if cand and cand["c"] >= MIN_COMPARE and cand["r"] < OTHER_MAX_RATIO and not force:
             raise IngestError(
                 f"--conversation {hint} 와 이 내보내기가 거의 겹치지 않는다 ({_fmt(hint, cand['m'], cand['c'])}). "
-                "다른 방의 내보내기일 수 있다. 확실하면 --force")
+                "다른 방의 내보내기일 수 있다. 확실하면 --force", "explicit_conversation_mismatch")
         return hint, link("explicit", "explicit_conversation", cand)
 
     tm = [c for c in cands if c["title_match"]]
@@ -79,7 +79,7 @@ def resolve(root: Path, parsed: ParsedExport, hint: str | None = None, force: bo
         raise IngestError(
             f"제목 {parsed.title!r}과 일치하는 방을 하나로 정하지 못했다 ("
             + "; ".join(_fmt(c["id"], c["m"], c["c"]) for c in tm)
-            + "). 같은 이름의 다른 방이거나 내용이 크게 바뀌었을 수 있다. --conversation 으로 지정하라")
+            + "). 같은 이름의 다른 방이거나 내용이 크게 바뀌었을 수 있다. --conversation 으로 지정하라", "room_title_ambiguous")
 
     scored = sorted((c for c in cands if c["c"] >= MIN_COMPARE), key=lambda c: c["r"], reverse=True)
     if scored:
@@ -90,5 +90,5 @@ def resolve(root: Path, parsed: ParsedExport, hint: str | None = None, force: bo
             raise IngestError(
                 f"제목 {parsed.title!r}은 처음 보는 이름인데 기존 방과 일부 겹친다 ("
                 + "; ".join(_fmt(c["id"], c["m"], c["c"]) for c in scored[:3])
-                + "). 이름이 바뀐 같은 방인지 확정할 수 없다. --conversation 으로 지정하라")
+                + "). 이름이 바뀐 같은 방인지 확정할 수 없다. --conversation 으로 지정하라", "room_rename_ambiguous")
     return new_conversation_id(parsed), {"status": "new", "basis": "no_overlap", "matched": 0, "compared": 0}
