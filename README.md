@@ -1,11 +1,10 @@
 # 카카오톡 대화 수동 추출 프로그램
 - 카카오톡 PC 대화를 지정된 스키마에 맞춰 저장한다.
 
-
 ## 파일구조
 ```bash
 kkt-manual-exporter
-├── AGENT.md                      # 개발 에이전트를 위한 규칙 (사용자가 추가, 미커밋)
+├── AGENT.md                      # 개발 에이전트를 위한 규칙
 ├── README.md
 ├── docs
 │   └── SCHEMA.md                 # 저장 형식과 판정 규칙의 기준 문서
@@ -58,3 +57,10 @@ kkt-manual-exporter
 - 마우스가 봇에게 넘어가되, 최대한 빠르게 수행하도록 자동화
     - 키보드 명령어를 통한 긴급 탈출 구현 (ctrl+d)
 - 암호화는 2차 구현 목표로.
+
+### 명령어
+- Python 테스트: `python3 -m pytest` (저장소 루트)
+- Rust: `cd src/rust && cargo test --release`, 빌드는 `cargo build --release`
+- 골든: `python3 tests/golden/run.py --cmd "src/rust/target/release/kkt"`, 최신 확인은 `python3 tests/golden/build.py --check`
+- CLI: `PYTHONPATH=src/python python3 -m kkt --conversation {방ID} ingest {TXT}`. 기본 아카이브는 `data/archive`
+- Windows 쪽 수집 실행은 [dev-environment](references/dev-environment.md) 참고
