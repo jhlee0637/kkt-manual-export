@@ -102,7 +102,7 @@ def cmd_status(args) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="kkt", description="카카오톡 내보내기 아카이버")
-    ap.add_argument("--archive", default="archive", help="아카이브 루트 (기본 archive)")
+    ap.add_argument("--archive", default="data/archive", help="아카이브 루트 (기본 data/archive)")
     ap.add_argument("--conversation", help="대화방 ID. ingest 에서는 생략하면 제목과 메시지 겹침으로 판정")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("ingest", help="내보내기 TXT를 반영")

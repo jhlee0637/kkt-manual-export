@@ -1,7 +1,5 @@
 # 대화 원문, 사진, 파생 아카이브는 개인정보를 포함하므로 저장소에 올리지 않는다
-raw/
-attachments/
-archive/
+data/
 
 # 참고용으로 클론한 외부 저장소 (정리 문서 references/*.md 는 추적)
 references/other-projects/

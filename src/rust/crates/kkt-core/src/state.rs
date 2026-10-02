@@ -1,4 +1,4 @@
-//! 이벤트 로그(events.jsonl)를 접어서(fold) 현재 상태를 만든다 (kkt/state.py 의 이식).
+//! 이벤트 로그(events.jsonl)를 접어서(fold) 현재 상태를 만든다 (src/python/kkt/state.py 의 이식).
 //!
 //! 상태 파일은 따로 두지 않는다. 이벤트 로그가 유일한 원본이다. 트랜잭션은 종결 이벤트
 //! (export.ingested / attach.committed / state.committed)로 닫고, 종결 이벤트 없이 끝난 꼬리(크래시)는 읽을 때 버린다.

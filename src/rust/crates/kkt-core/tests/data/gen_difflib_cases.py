@@ -1,6 +1,6 @@
 """difflib 이식을 검증할 정답 데이터를 Python 으로 만든다.
 
-    python3 rust/crates/kkt-core/tests/data/gen_difflib_cases.py
+    python3 src/rust/crates/kkt-core/tests/data/gen_difflib_cases.py
 
 작은 알파벳(중복이 많아 동률이 자주 생긴다)과 긴 시퀀스를 섞어, 같은 입력에 대한
 get_matching_blocks / get_opcodes 결과를 JSON 으로 저장한다. Rust 테스트가 이를 그대로 대조한다.

@@ -57,7 +57,7 @@ def run_cli_inprocess(argv: list) -> dict:
 
 def run_cli_external(cmd: str, argv: list, cwd: Path) -> dict:
     """외부 실행 파일(다른 언어로 이식한 구현 등)을 서브프로세스로 호출한다. cmd 는 셸 단어 분리 규칙을 따른다."""
-    root = str(Path(__file__).resolve().parents[2])
+    root = str(Path(__file__).resolve().parents[2] / "src" / "python")   # python -m kkt 를 찾을 수 있게
     env = {**os.environ, "PYTHONIOENCODING": "utf-8",
            "PYTHONPATH": root + os.pathsep + os.environ.get("PYTHONPATH", "")}
     tokens = shlex.split(cmd)

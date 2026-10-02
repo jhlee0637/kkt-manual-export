@@ -1,4 +1,4 @@
-//! 카카오톡 PC '대화 내보내기' TXT 파서 (kkt/parse.py 의 이식).
+//! 카카오톡 PC '대화 내보내기' TXT 파서 (src/python/kkt/parse.py 의 이식).
 //!
 //! 관측된 형식:
 //!

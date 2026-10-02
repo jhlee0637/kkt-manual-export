@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parents[1]))
+sys.path.insert(0, str(HERE.parents[1] / "src" / "python"))
 sys.path.insert(0, str(HERE))
 
 from runner import run_scenario, write_expected, load_expected   # noqa: E402

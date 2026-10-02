@@ -1,4 +1,4 @@
-//! kkt: 카카오톡 내보내기 아카이버 CLI (kkt/cli.py 의 이식).
+//! kkt: 카카오톡 내보내기 아카이버 CLI (src/python/kkt/cli.py 의 이식).
 //!
 //! 규격은 tests/golden/README.md 의 "구현이 제공해야 하는 CLI" 를 따른다.
 //!   전역 옵션: --archive <폴더>, --conversation <ID>
@@ -60,7 +60,7 @@ struct Cli {
 }
 
 fn parse_args(args: &[String]) -> std::result::Result<Cli, Usage> {
-    let mut archive = PathBuf::from("archive");
+    let mut archive = PathBuf::from("data/archive");
     let mut conversation: Option<String> = None;
     let mut i = 0;
     let sub = loop {

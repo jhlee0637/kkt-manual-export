@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-GOLDEN = Path(__file__).parent / "golden"
+GOLDEN = Path(__file__).resolve().parents[1] / "golden"
 sys.path.insert(0, str(GOLDEN))
 
 from runner import load_expected, run_scenario   # noqa: E402

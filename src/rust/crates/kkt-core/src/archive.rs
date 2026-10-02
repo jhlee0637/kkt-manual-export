@@ -1,4 +1,4 @@
-//! 아카이브 디렉터리 하나 = 대화방 하나 (kkt/archive.py 의 이식).
+//! 아카이브 디렉터리 하나 = 대화방 하나 (src/python/kkt/archive.py 의 이식).
 //!
 //! ```text
 //! archive/<conversation_id>/

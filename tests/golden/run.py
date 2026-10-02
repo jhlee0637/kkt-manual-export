@@ -2,7 +2,7 @@
 
     python3 tests/golden/run.py                                  # 이 저장소의 Python 구현 (직접 호출)
     python3 tests/golden/run.py --cmd "python3 -m kkt"           # 서브프로세스로 호출
-    python3 tests/golden/run.py --cmd "rust/target/release/kkt"  # 이식한 구현
+    python3 tests/golden/run.py --cmd "src/rust/target/release/kkt"  # 이식한 구현
     python3 tests/golden/run.py --cmd ... combined_realworld     # 시나리오 이름으로 일부만
     KKT_GOLDEN_CMD="..." python3 tests/golden/run.py             # 명령을 환경 변수로
 
@@ -18,7 +18,7 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parents[1]))
+sys.path.insert(0, str(HERE.parents[1] / "src" / "python"))
 sys.path.insert(0, str(HERE))
 
 from runner import load_expected, run_scenario   # noqa: E402
