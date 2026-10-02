@@ -1,0 +1,14 @@
+{
+  "kt_golden/events.jsonl": {
+    "sha256": "357e87cca2a125721d30baa87383ed0ade6f12fdaf611a4788f063a04f48008a",
+    "size": 5863
+  },
+  "kt_golden/raw/e1.txt": {
+    "sha256": "136af197d0a030cf28b5d477e7cd0f692948c9fe49ad029a3669c609aa56173a",
+    "size": 266
+  },
+  "kt_golden/raw/e2.txt": {
+    "sha256": "e68a0bc48360b9ab13ca21f3fc0fad9a39fb1eaf81bb30de61089e9769bf5593",
+    "size": 205
+  }
+}

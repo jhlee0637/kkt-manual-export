@@ -1,0 +1,76 @@
+[
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e1.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_golden",
+        "events": {
+          "conversation.title_observed": 1,
+          "message.observed": 8,
+          "participant.observed": 2
+        },
+        "export": "e1.txt",
+        "link": "explicit",
+        "warnings": []
+      }
+    ],
+    "step": 0
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e2.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_golden",
+        "events": {
+          "message.missing": 1
+        },
+        "export": "e2.txt",
+        "link": "explicit",
+        "warnings": []
+      }
+    ],
+    "step": 1
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e3.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_golden",
+        "events": {
+          "message.missing": 1
+        },
+        "export": "e3.txt",
+        "link": "explicit",
+        "warnings": []
+      }
+    ],
+    "step": 2
+  }
+]

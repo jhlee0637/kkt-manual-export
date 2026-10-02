@@ -99,6 +99,27 @@ def sc_basic(root):
     s.finish()
 
 
+def sc_dup_tiebreak(root):
+    s = Scn(root, "duplicate_longest_block",
+            "가장 긴 일치 블록이 우선이다: 중복 메시지 뒤로 이어지는 더 긴 일치가 있으면 앞쪽(먼저 온) 중복이 missing 이 된다")
+    dup = ["[민수] [오전 9:05] 중복", "[민수] [오전 9:05] 중복", "[민수] [오전 9:05] 중복"]
+    s.txt("e1.txt", "2026-10-02 10:00:00", CHAT[:2] + dup + CHAT[2:])
+    s.txt("e2.txt", "2026-10-02 10:10:00", CHAT[:2] + dup[:2] + CHAT[2:])      # 중복 셋 중 하나가 로컬 삭제로 사라짐
+    s.txt("e3.txt", "2026-10-02 10:20:00", CHAT[:2] + dup[:1] + CHAT[2:])      # 또 하나가 사라짐
+    s.ingest("e1.txt"); s.ingest("e2.txt"); s.ingest("e3.txt")
+    s.finish()
+
+
+def sc_tie(root):
+    s = Scn(root, "tie_break_equal_runs",
+            "길이가 같은 일치가 여럿이면 a(이전 기록)에서 앞쪽, 그다음 b 에서 앞쪽을 고른다: 떨어져 있는 같은 메시지 둘 중 먼저 온 것이 유지된다")
+    d = "[민수] [오전 9:05] 네"
+    s.txt("e1.txt", "2026-10-02 10:00:00", [d, "[지영] [오전 9:05] 알겠어요", d, "[지영] [오전 9:05] ㅇㅋ"])
+    s.txt("e2.txt", "2026-10-02 10:10:00", [d, "[지영] [오전 9:20] 다른 말"])
+    s.ingest("e1.txt"); s.ingest("e2.txt", force=True)      # 활성 4개 중 3개가 사라지므로 --force
+    s.finish()
+
+
 def sc_delete(root):
     s = Scn(root, "delete_for_everyone", "모두에게 삭제는 같은 자리의 삭제 표식으로 확정, 표식은 이후에도 유지, 사진 삭제도 같은 표식")
     base = CHAT[:2] + ["[민수] [오전 9:02] 사진"] + CHAT[2:]
@@ -294,6 +315,17 @@ def sc_format(root):
     s.finish()
 
 
+def sc_exotic_separators(root):
+    s = Scn(root, "exotic_line_separators",
+            "줄 구분은 \\r\\n, \\n, \\r 만이다. 본문의 U+2028, U+0085, \\x0b 등은 본문의 일부로 보존된다 (로그를 다시 읽어도 안 깨짐)")
+    body = ["[민수] [오전 9:00] 앞\u2028뒤\u0085끝\x0b!", "[지영] [오전 9:01] 보통 메시지"]
+    s.txt("e1.txt", "2026-10-02 10:00:00", body)
+    s.txt("e2.txt", "2026-10-02 10:10:00", body + ["[민수] [오전 9:02] 이어서"])
+    s.ingest("e1.txt"); s.ingest("e2.txt")
+    s.cli("--conversation", CONV, "status")
+    s.finish()
+
+
 def sc_attach(root):
     s = Scn(root, "attachments_link", "사진 연결: 같은 분의 사진 수와 파일 수가 같을 때만 시간순 연결, 중복 저장본은 alias, 남의 파일은 무시")
     png = b"\x89PNG\r\n\x1a\n"
@@ -334,9 +366,9 @@ def sc_schema(root):
     s.finish()
 
 
-SCENARIOS = [sc_basic, sc_thresholds, sc_delete, sc_missing, sc_edit, sc_realworld, sc_trim, sc_errors, sc_room_rename,
+SCENARIOS = [sc_basic, sc_thresholds, sc_dup_tiebreak, sc_tie, sc_delete, sc_missing, sc_edit, sc_realworld, sc_trim, sc_errors, sc_room_rename,
              sc_room_resolution, sc_explicit, sc_member_rename, sc_member_boundary, sc_member_weak, sc_nonretro, sc_format,
-             sc_attach, sc_crash, sc_schema]
+             sc_exotic_separators, sc_attach, sc_crash, sc_schema]
 
 
 def build(root: Path) -> list:

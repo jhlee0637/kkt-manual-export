@@ -80,12 +80,21 @@ def to_24h(ampm: str, hour: int) -> int:
     return 12 if hour == 12 else hour + 12
 
 
+def split_lines(text: str) -> list:
+    r"""줄 구분은 \r\n, \n, \r 만이다. str.splitlines() 는 U+2028, U+0085, \x0b 등으로도 나눠서
+    메시지 본문을 조용히 바꾸므로 쓰지 않는다 (다른 언어로 이식할 때도 이 정의를 따른다)."""
+    parts = re.split(r"\r\n|\n|\r", text)
+    if parts and parts[-1] == "":
+        parts.pop()
+    return parts
+
+
 def _is_system(line: str) -> bool:
     return any(r.match(line) for r in _SYSTEM_RES)
 
 
 def parse_export(text: str) -> ParsedExport:
-    lines = text.lstrip("﻿").splitlines()
+    lines = split_lines(text.lstrip("\ufeff"))
     title = saved_at = None
     entries: list = []
     warnings: list = []

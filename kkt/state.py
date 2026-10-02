@@ -143,6 +143,14 @@ class State:
         return any(i["export_sha256"] == sha256 for i in self.ingests)
 
 
+def _log_lines(text: str) -> list:
+    r"""로그는 항상 \n 으로 끝나는 줄들이다. splitlines() 는 JSON 문자열 안의 U+2028 등에서도 쪼개므로 쓰지 않는다."""
+    parts = text.split("\n")
+    if parts and parts[-1] == "":
+        parts.pop()
+    return parts
+
+
 def load(events_path: Path) -> tuple[State, int]:
     """(상태, 유효한 줄 수). 종결 이벤트 뒤의 꼬리 줄은 무시한다."""
     st = State()
@@ -150,7 +158,7 @@ def load(events_path: Path) -> tuple[State, int]:
         return st, 0
     pending: list = []
     valid = 0
-    for n, line in enumerate(events_path.read_text(encoding="utf-8").splitlines(), 1):
+    for n, line in enumerate(_log_lines(events_path.read_text(encoding="utf-8")), 1):
         if not line.strip():
             continue
         pending.append(json.loads(line))
@@ -171,10 +179,10 @@ def append(events_path: Path, valid_lines: int, events: list) -> None:
     """트랜잭션을 추가한다. 이전의 불완전한 꼬리가 있으면 먼저 잘라낸다."""
     events_path.parent.mkdir(parents=True, exist_ok=True)
     if events_path.exists():
-        lines = events_path.read_text(encoding="utf-8").splitlines()
+        lines = _log_lines(events_path.read_text(encoding="utf-8"))
         if len(lines) > valid_lines:
             events_path.write_text(
-                "".join(l + "\n" for l in lines[:valid_lines]), encoding="utf-8"
+                "".join(l + "\n" for l in lines[:valid_lines]), encoding="utf-8", newline="\n"
             )
     with events_path.open("a", encoding="utf-8", newline="\n") as f:
         for ev in events:

@@ -1,0 +1,35 @@
+{
+  "description": "가장 긴 일치 블록이 우선이다: 중복 메시지 뒤로 이어지는 더 긴 일치가 있으면 앞쪽(먼저 온) 중복이 missing 이 된다",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e2.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e3.txt"
+      ]
+    }
+  ]
+}

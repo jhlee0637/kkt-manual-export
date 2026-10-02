@@ -1,0 +1,80 @@
+[
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e1.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_golden",
+        "events": {
+          "conversation.title_observed": 1,
+          "message.observed": 2,
+          "participant.observed": 2
+        },
+        "export": "e1.txt",
+        "link": "explicit",
+        "warnings": []
+      }
+    ],
+    "step": 0
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "ingest",
+      "{dir}/e2.txt"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "conversation": "kt_golden",
+        "events": {
+          "message.observed": 1
+        },
+        "export": "e2.txt",
+        "link": "explicit",
+        "warnings": []
+      }
+    ],
+    "step": 1
+  },
+  {
+    "argv": [
+      "--archive",
+      "{archive}",
+      "--conversation",
+      "kt_golden",
+      "status"
+    ],
+    "error_codes": [],
+    "exit": 0,
+    "stdout": [
+      {
+        "attachments": 0,
+        "conversation_id": "kt_golden",
+        "deleted_markers_unmatched": 0,
+        "exports_ingested": 2,
+        "image_messages": 0,
+        "image_messages_linked": 0,
+        "last_export_saved_at": "2026-10-02T10:10:00+09:00",
+        "messages_by_status": {
+          "active": 3
+        },
+        "participants": 2,
+        "title": "회의방"
+      }
+    ],
+    "step": 2
+  }
+]

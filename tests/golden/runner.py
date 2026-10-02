@@ -60,7 +60,10 @@ def run_cli_external(cmd: str, argv: list, cwd: Path) -> dict:
     root = str(Path(__file__).resolve().parents[2])
     env = {**os.environ, "PYTHONIOENCODING": "utf-8",
            "PYTHONPATH": root + os.pathsep + os.environ.get("PYTHONPATH", "")}
-    p = subprocess.run(shlex.split(cmd) + list(argv), cwd=cwd, env=env, capture_output=True, timeout=120)
+    tokens = shlex.split(cmd)
+    if os.sep in tokens[0] or "/" in tokens[0]:       # 경로가 든 실행 파일은 호출한 위치 기준으로 절대 경로로 바꾼다 (cwd 는 작업 폴더다)
+        tokens[0] = os.path.abspath(tokens[0])
+    p = subprocess.run(tokens + list(argv), cwd=cwd, env=env, capture_output=True, timeout=120)
     return _result(p.returncode, p.stdout.decode("utf-8", "replace"), p.stderr.decode("utf-8", "replace"))
 
 

@@ -1,0 +1,26 @@
+{
+  "description": "길이가 같은 일치가 여럿이면 a(이전 기록)에서 앞쪽, 그다음 b 에서 앞쪽을 고른다: 떨어져 있는 같은 메시지 둘 중 먼저 온 것이 유지된다",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e2.txt",
+        "--force"
+      ]
+    }
+  ]
+}

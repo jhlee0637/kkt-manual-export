@@ -1,0 +1,34 @@
+{
+  "description": "줄 구분은 \\r\\n, \\n, \\r 만이다. 본문의 U+2028, U+0085, \\x0b 등은 본문의 일부로 보존된다 (로그를 다시 읽어도 안 깨짐)",
+  "steps": [
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e1.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "ingest",
+        "{dir}/e2.txt"
+      ]
+    },
+    {
+      "argv": [
+        "--archive",
+        "{archive}",
+        "--conversation",
+        "kt_golden",
+        "status"
+      ]
+    }
+  ]
+}
