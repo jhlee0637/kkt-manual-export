@@ -49,10 +49,34 @@ tests/golden/
 - 인코딩 판별은 `utf-8-sig` → `cp949` 순서다. (`encoding_and_format`)
 - 시각은 항상 한국 시간(+09:00) 문자열로 만든다. 시스템 시계는 쓰지 않는다.
 
+## 구현이 제공해야 하는 CLI
+
+골든은 CLI 를 서브프로세스로 호출한다. 이식된 바이너리는 아래 규격을 따라야 한다.
+
+전역 옵션: `--archive <폴더>`, `--conversation <대화방ID>` (서브커맨드 앞에 온다)
+
+| 서브커맨드 | 인자 | 표준 출력 |
+|---|---|---|
+| `ingest` | `<파일>... [--force] [--accept-rename 옛=새]...` | **파일마다 한 줄**의 JSON: `conversation`, `link`(방 판정 상태), `export`(파일 이름), `events`(이벤트 타입별 개수) 또는 `skipped`, `warnings` |
+| `attach` | `<사진 폴더>` | JSON 한 개: `saved`, `linked`, `skipped_non_kakao_files`, `unmatched_groups` |
+| `status` | | 들여쓴 JSON 한 개 |
+| `participants` | | 들여쓴 JSON 한 개 |
+| `participant-link` | `--keep <이름> --merge <이름>` | JSON 한 개: `kept`, `merged`, `current_name` |
+
+- 종료 코드: 성공 0, 처리 중단 1, 사용법 오류 2.
+- 오류는 표준 오류에 `[중단:<code>] <메시지>` 한 줄로 낸다. `<code>` 만 비교한다.
+- `ingest` 는 여러 파일을 받으면 `saved_at` 순으로 반영하고, 오류가 나면 거기서 멈춘다 (앞에서 반영한 것은 남는다).
+- 표준 출력은 UTF-8 이다.
+
 ## 사용
 
 ```bash
 python3 -m pytest tests/test_golden.py          # 현재 구현이 계약을 지키는지
 python3 tests/golden/build.py --check           # 커밋된 골든이 최신인지
 python3 tests/golden/build.py                   # 동작을 일부러 바꿨을 때 기대 결과를 다시 만든다 (git diff 로 리뷰)
+
+# 이식한 구현을 시험한다 (어긋난 지점을 보여 준다)
+python3 tests/golden/run.py --cmd "rust/target/release/kkt"
+python3 tests/golden/run.py --cmd "rust/target/release/kkt" combined_realworld     # 시나리오 하나만
+KKT_GOLDEN_CMD="rust/target/release/kkt" python3 -m pytest tests/test_golden.py     # pytest 로 (시나리오별 통과 여부)
 ```

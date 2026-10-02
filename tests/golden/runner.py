@@ -14,7 +14,10 @@ import contextlib
 import hashlib
 import io
 import json
+import os
 import re
+import shlex
+import subprocess
 from pathlib import Path
 
 from kkt.cli import main as kkt_main
@@ -36,7 +39,12 @@ def _parse_stdout(text: str) -> list:
         return [json.loads(line) for line in text.splitlines() if line.strip()]   # ingest: 한 줄에 JSON 하나
 
 
-def run_cli(argv: list) -> dict:
+def _result(code, out: str, err: str) -> dict:
+    codes = [m.group(1) for line in err.splitlines() if (m := _ERR_RE.match(line))]
+    return {"exit": code, "stdout": _parse_stdout(out), "error_codes": codes}
+
+
+def run_cli_inprocess(argv: list) -> dict:
     out, err = io.StringIO(), io.StringIO()
     code = 0
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
@@ -44,12 +52,22 @@ def run_cli(argv: list) -> dict:
             code = kkt_main(argv)
         except SystemExit as e:                          # argparse 사용법 오류
             code = e.code if isinstance(e.code, int) else 2
-    codes = [m.group(1) for line in err.getvalue().splitlines() if (m := _ERR_RE.match(line))]
-    return {"exit": code, "stdout": _parse_stdout(out.getvalue()), "error_codes": codes}
+    return _result(code, out.getvalue(), err.getvalue())
 
 
-def run_scenario(scn_dir: Path, work: Path) -> dict:
+def run_cli_external(cmd: str, argv: list, cwd: Path) -> dict:
+    """외부 실행 파일(다른 언어로 이식한 구현 등)을 서브프로세스로 호출한다. cmd 는 셸 단어 분리 규칙을 따른다."""
+    root = str(Path(__file__).resolve().parents[2])
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8",
+           "PYTHONPATH": root + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    p = subprocess.run(shlex.split(cmd) + list(argv), cwd=cwd, env=env, capture_output=True, timeout=120)
+    return _result(p.returncode, p.stdout.decode("utf-8", "replace"), p.stderr.decode("utf-8", "replace"))
+
+
+def run_scenario(scn_dir: Path, work: Path, cmd: str | None = None) -> dict:
+    """cmd 가 있으면 그 명령으로 CLI 를 호출하고, 없으면 이 저장소의 Python 구현을 직접 호출한다."""
     scn_dir, work = Path(scn_dir), Path(work)
+    work.mkdir(parents=True, exist_ok=True)
     archive = work / "archive"
     steps = json.loads((scn_dir / "steps.json").read_text(encoding="utf-8"))["steps"]
     results = []
@@ -67,7 +85,8 @@ def run_scenario(scn_dir: Path, work: Path) -> dict:
             results.append({"step": i, "op": step["op"]})
             continue
         argv = [_subst(a, scn_dir, archive) for a in step["argv"]]
-        results.append({"step": i, "argv": step["argv"], **run_cli(argv)})
+        res = run_cli_external(cmd, argv, work) if cmd else run_cli_inprocess(argv)
+        results.append({"step": i, "argv": step["argv"], **res})
     tree, events = {}, {}
     if archive.exists():
         for p in sorted(archive.rglob("*")):
