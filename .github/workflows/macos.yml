@@ -1,0 +1,51 @@
+name: macos
+
+# Mac 용 kkt 를 빌드하고 골든 시나리오를 돌린다. 수동 실행(workflow_dispatch)만 지원한다.
+# release_tag 를 주면 결과를 그 릴리즈에 올린다. 카카오톡 조작(collect)은 Windows 전용이라 Mac 빌드에는 없다.
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "결과를 올릴 릴리즈 태그 (비우면 아티팩트만)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 타깃 추가
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - name: 단위 테스트
+        working-directory: src/rust
+        run: cargo test --release
+      - name: 빌드 (Apple 실리콘, Intel)
+        working-directory: src/rust
+        run: |
+          cargo build --release --target aarch64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin
+      - name: 골든 시나리오 (Apple 실리콘 바이너리)
+        run: python3 tests/golden/run.py --cmd "src/rust/target/aarch64-apple-darwin/release/kkt"
+      - name: 묶기
+        run: |
+          mkdir out
+          cp src/rust/target/aarch64-apple-darwin/release/kkt out/kkt-macos-arm64
+          cp src/rust/target/x86_64-apple-darwin/release/kkt out/kkt-macos-x86_64
+          lipo -create -output out/kkt-macos-universal out/kkt-macos-arm64 out/kkt-macos-x86_64
+          cd out && shasum -a 256 kkt-macos-* > kkt-macos.sha256 && cat kkt-macos.sha256 && ls -l
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kkt-macos
+          path: out/*
+      - name: 릴리즈에 올리기
+        if: ${{ inputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.release_tag }}" out/* --clobber
