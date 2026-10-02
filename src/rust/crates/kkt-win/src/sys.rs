@@ -21,6 +21,25 @@ pub struct RawRect {
     pub bottom: i32,
 }
 
+/// 캡처한 창 이미지. 픽셀은 위에서 아래로, 한 픽셀이 B,G,R,A 순서의 4바이트.
+#[derive(Debug, Clone)]
+pub struct Image {
+    pub w: usize,
+    pub h: usize,
+    pub px: Vec<u8>,
+}
+
+impl Image {
+    pub fn rgb(&self, x: usize, y: usize) -> (u8, u8, u8) {
+        let i = (y * self.w + x) * 4;
+        (self.px[i + 2], self.px[i + 1], self.px[i])
+    }
+}
+
+pub const VK_RIGHT: u16 = 0x27;
+pub const VK_DOWN: u16 = 0x28;
+pub const VK_ESCAPE: u16 = 0x1B;
+
 #[cfg(windows)]
 pub use imp::*;
 #[cfg(not(windows))]
@@ -120,6 +139,42 @@ mod imp {
         fn SendInput(n: u32, inputs: *const Input, size: i32) -> u32;
         fn GetAsyncKeyState(vk: i32) -> i16;
         fn SetProcessDpiAwarenessContext(ctx: isize) -> i32;
+        fn GetDC(h: Hwnd) -> isize;
+        fn ReleaseDC(h: Hwnd, dc: isize) -> i32;
+        fn PrintWindow(h: Hwnd, dc: isize, flags: u32) -> i32;
+        fn SetCursorPos(x: i32, y: i32) -> i32;
+        fn mouse_event(flags: u32, dx: u32, dy: u32, data: u32, extra: usize);
+    }
+
+    #[repr(C)]
+    struct BitmapInfoHeader {
+        size: u32,
+        width: i32,
+        height: i32,
+        planes: u16,
+        bit_count: u16,
+        compression: u32,
+        size_image: u32,
+        x_ppm: i32,
+        y_ppm: i32,
+        clr_used: u32,
+        clr_important: u32,
+    }
+
+    #[repr(C)]
+    struct BitmapInfo {
+        header: BitmapInfoHeader,
+        colors: [u32; 1],
+    }
+
+    #[link(name = "gdi32")]
+    extern "system" {
+        fn CreateCompatibleDC(dc: isize) -> isize;
+        fn CreateCompatibleBitmap(dc: isize, w: i32, h: i32) -> isize;
+        fn SelectObject(dc: isize, obj: isize) -> isize;
+        fn DeleteObject(obj: isize) -> i32;
+        fn DeleteDC(dc: isize) -> i32;
+        fn GetDIBits(dc: isize, bmp: isize, start: u32, lines: u32, bits: *mut u8, bi: *mut BitmapInfo, usage: u32) -> i32;
     }
 
     #[link(name = "kernel32")]
@@ -290,6 +345,62 @@ mod imp {
         }
     }
 
+    /// 창을 (가려져 있어도) 그대로 캡처한다. 포커스를 가져가지 않는다.
+    pub fn capture_window(h: Hwnd) -> Option<Image> {
+        let r = window_rect(h)?;
+        let (w, hgt) = ((r.right - r.left).max(0), (r.bottom - r.top).max(0));
+        if w == 0 || hgt == 0 {
+            return None;
+        }
+        unsafe {
+            let screen = GetDC(0);
+            let mem = CreateCompatibleDC(screen);
+            let bmp = CreateCompatibleBitmap(screen, w, hgt);
+            let old = SelectObject(mem, bmp);
+            let ok = PrintWindow(h, mem, 2) != 0; // 2 = PW_RENDERFULLCONTENT
+            let mut px = vec![0u8; (w * hgt * 4) as usize];
+            let mut bi = BitmapInfo {
+                header: BitmapInfoHeader {
+                    size: std::mem::size_of::<BitmapInfoHeader>() as u32,
+                    width: w,
+                    height: -hgt, // 위에서 아래로
+                    planes: 1,
+                    bit_count: 32,
+                    compression: 0,
+                    size_image: 0,
+                    x_ppm: 0,
+                    y_ppm: 0,
+                    clr_used: 0,
+                    clr_important: 0,
+                },
+                colors: [0],
+            };
+            let got = GetDIBits(mem, bmp, 0, hgt as u32, px.as_mut_ptr(), &mut bi, 0);
+            SelectObject(mem, old);
+            DeleteObject(bmp);
+            DeleteDC(mem);
+            ReleaseDC(0, screen);
+            (ok && got != 0).then_some(Image { w: w as usize, h: hgt as usize, px })
+        }
+    }
+
+    pub fn cursor_to(x: i32, y: i32) {
+        unsafe { SetCursorPos(x, y) };
+    }
+
+    pub fn mouse_click() {
+        unsafe {
+            mouse_event(0x0002, 0, 0, 0, 0); // LEFTDOWN
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            mouse_event(0x0004, 0, 0, 0, 0); // LEFTUP
+        }
+    }
+
+    /// 휠을 `notches` 칸 돌린다 (음수는 아래로).
+    pub fn wheel(notches: i32) {
+        unsafe { mouse_event(0x0800, 0, 0, (notches * 120) as u32, 0) };
+    }
+
     pub fn is_iconic(h: Hwnd) -> bool {
         unsafe { IsIconic(h) != 0 }
     }
@@ -350,6 +461,10 @@ mod stub {
     pub fn descendants(_: Hwnd) -> Vec<(Hwnd, String, String, i32)> { Vec::new() }
     pub fn window_rect(_: Hwnd) -> Option<RawRect> { None }
     pub fn work_area(_: Hwnd) -> Option<RawRect> { None }
+    pub fn capture_window(_: Hwnd) -> Option<Image> { None }
+    pub fn cursor_to(_: i32, _: i32) {}
+    pub fn mouse_click() {}
+    pub fn wheel(_: i32) {}
     pub fn is_iconic(_: Hwnd) -> bool { false }
     pub fn is_zoomed(_: Hwnd) -> bool { false }
     pub fn show_window(_: Hwnd, _: i32) {}

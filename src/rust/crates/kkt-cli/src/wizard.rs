@@ -2,7 +2,9 @@
 //!
 //! 저장 위치는 `다운로드\kkt-manual-export-archive` (`archive/` 에 정리 결과, `exports/` 에 내보내기 TXT).
 
-use kkt_win::{collect, guard::Guard, sys, window, WinError};
+use kkt_core::archive::Archive;
+use kkt_core::attach::ingest_attachments;
+use kkt_win::{collect, guard::Guard, photos, sys, window, WinError};
 use serde_json::Value;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -78,6 +80,55 @@ fn prompt(text: &str) -> Option<String> {
     }
 }
 
+/// 아직 사진 파일과 연결되지 않은, 지금 보이는 사진 메시지 수.
+fn unlinked_images(archive: &Path, conv: &str) -> usize {
+    match Archive::new(archive, conv).load() {
+        Ok((st, _)) => st
+            .registry
+            .values()
+            .filter(|r| r.kind == "message" && r.content_type == "image" && r.status == "active" && r.attachment_id.as_deref().map_or(true, |a| a.is_empty()))
+            .count(),
+        Err(_) => 0,
+    }
+}
+
+/// 서랍에서 최신 사진을 (연결 안 된 사진 메시지 수만큼) 저장하고 메시지와 연결한다.
+fn save_photos(title: &str, archive: &Path, conv: &str) {
+    let n = unlinked_images(archive, conv);
+    if n == 0 {
+        println!("저장할 새 사진이 없습니다.");
+        return;
+    }
+    println!("\n사진 {n}장이 아직 저장되지 않았습니다. 서랍에서 저장합니다. 마우스와 키보드에서 손을 떼세요. (중단: Ctrl+D)");
+    let dir = photos::default_save_dir();
+    let opt = photos::Options { newest: Some(n), ..Default::default() };
+    match photos::download_photos(title, &dir, &Guard::new(), &opt) {
+        Ok(meta) => {
+            let saved = meta["saved_files"].as_array().map_or(0, |a| a.len());
+            println!("사진 {saved}장을 저장했습니다: {}", dir.display());
+            for w in meta["warnings"].as_array().into_iter().flatten() {
+                println!("주의: {}", w.as_str().unwrap_or_default());
+            }
+            match ingest_attachments(&Archive::new(archive, conv), &dir) {
+                Ok(r) => {
+                    println!("사진을 보관하고 메시지와 연결했습니다: 새로 보관 {}장, 연결 {}장", r["saved"], r["linked"]);
+                    for g in r["unmatched_groups"].as_array().into_iter().flatten() {
+                        println!(
+                            "주의: {} 에 사진 메시지 {}개, 파일 {}개라서 연결하지 않았습니다 (추측하지 않습니다)",
+                            g["minute"].as_str().unwrap_or_default(),
+                            g["image_messages"],
+                            g["files"]
+                        );
+                    }
+                }
+                Err(e) => println!("사진을 연결하지 못했습니다 [{}]: {}", e.code, e.message),
+            }
+        }
+        Err(WinError::Aborted) => println!("\nCtrl+D 로 중단했습니다. 사진은 반영하지 않았습니다."),
+        Err(e) => println!("\n사진을 저장하지 못했습니다: {e}"),
+    }
+}
+
 fn collect_and_ingest(title: &str, base: &Path) {
     let exports = base.join("exports");
     let archive = base.join("archive");
@@ -101,11 +152,15 @@ fn collect_and_ingest(title: &str, base: &Path) {
     }
     match crate::ingest_path(&archive, None, &path, false, &indexmap::IndexMap::new()) {
         Ok(r) => {
-            if let Some(c) = r.get("conversation").and_then(Value::as_str) {
+            let conv = r.get("conversation").and_then(Value::as_str).map(str::to_string);
+            if let Some(c) = &conv {
                 println!("정리 위치: {}", archive.join(c).display());
             }
             for l in summarize(&r) {
                 println!("{l}");
+            }
+            if let Some(c) = conv {
+                save_photos(title, &archive, &c);
             }
         }
         Err(e) => {

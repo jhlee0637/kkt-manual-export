@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 
 mod wizard;
 
-const USAGE: &str = "usage: kkt [--archive ARCHIVE] [--conversation CONVERSATION] {ingest,attach,status,participants,participant-link,collect} ...";
+const USAGE: &str = "usage: kkt [--archive ARCHIVE] [--conversation CONVERSATION] {ingest,attach,status,participants,participant-link,collect,photos} ...";
 
 struct Usage(String);
 
@@ -54,6 +54,7 @@ enum Cmd {
     Participants,
     ParticipantLink { keep: String, merge: String },
     Collect { title: String, out: String, width: i32, height: i32, hold: f64, ingest: bool },
+    Photos { title: String, newest: Option<usize>, save_dir: Option<String>, attach: bool },
 }
 
 struct Cli {
@@ -158,6 +159,28 @@ fn parse_args(args: &[String]) -> std::result::Result<Cli, Usage> {
             match (title, out) {
                 (Some(title), Some(out)) => Cmd::Collect { title, out, width, height, hold, ingest },
                 _ => return usage_err("the following arguments are required: --title, --out"),
+            }
+        }
+        "photos" => {
+            let (mut title, mut newest, mut save_dir, mut attach) = (None, None, None, false);
+            let mut j = 0;
+            while j < rest.len() {
+                if rest[j] == "--attach" {
+                    attach = true;
+                } else if let Some(v) = opt(rest, &mut j, "--title")? {
+                    title = Some(v);
+                } else if let Some(v) = opt(rest, &mut j, "--newest")? {
+                    newest = Some(v.parse().or_else(|_| usage_err(format!("--newest: invalid int value: {v:?}")))?);
+                } else if let Some(v) = opt(rest, &mut j, "--save-dir")? {
+                    save_dir = Some(v);
+                } else {
+                    return usage_err(format!("unrecognized arguments: {}", rest[j]));
+                }
+                j += 1;
+            }
+            match title {
+                Some(title) => Cmd::Photos { title, newest, save_dir, attach },
+                None => return usage_err("the following arguments are required: --title"),
             }
         }
         other => return usage_err(format!("argument cmd: invalid choice: {other:?}")),
@@ -302,6 +325,36 @@ fn cmd_collect(cli: &Cli, title: &str, out: &str, width: i32, height: i32, hold:
     0
 }
 
+/// 서랍의 사진을 저장한다 (Windows 전용). `--attach` 면 저장 폴더를 읽어 메시지와 연결한다.
+fn cmd_photos(cli: &Cli, title: &str, newest: Option<usize>, save_dir: &Option<String>, attach: bool) -> i32 {
+    use kkt_win::{guard::Guard, photos, WinError};
+    let dir = save_dir.as_ref().map(PathBuf::from).unwrap_or_else(photos::default_save_dir);
+    let opt = photos::Options { newest, ..Default::default() };
+    let meta = match photos::download_photos(title, &dir, &Guard::new(), &opt) {
+        Ok(m) => m,
+        Err(WinError::Aborted) => {
+            eprintln!("[중단] Ctrl+D 로 중단됨");
+            return 130;
+        }
+        Err(e) => {
+            eprintln!("[실패] {e}");
+            return 1;
+        }
+    };
+    print_line(&meta);
+    if attach {
+        let result = arch(cli).and_then(|a| ingest_attachments(&a, &dir));
+        match result {
+            Ok(v) => print_pretty(&v),
+            Err(e) => {
+                eprintln!("[중단:{}] {}", e.code, e.message);
+                return 1;
+            }
+        }
+    }
+    0
+}
+
 fn run(cli: &Cli) -> Result<()> {
     match &cli.cmd {
         Cmd::Ingest { files, force, accept } => cmd_ingest(cli, files, *force, accept),
@@ -309,7 +362,7 @@ fn run(cli: &Cli) -> Result<()> {
             print_pretty(&ingest_attachments(&arch(cli)?, Path::new(src))?);
             Ok(())
         }
-        Cmd::Collect { .. } => unreachable!("main 에서 처리한다"),
+        Cmd::Collect { .. } | Cmd::Photos { .. } => unreachable!("main 에서 처리한다"),
         Cmd::Status => cmd_status(cli),
         Cmd::Participants => cmd_participants(cli),
         Cmd::ParticipantLink { keep, merge } => {
@@ -334,6 +387,9 @@ fn main() {
     };
     if let Cmd::Collect { title, out, width, height, hold, ingest } = &cli.cmd {
         std::process::exit(cmd_collect(&cli, title, out, *width, *height, *hold, *ingest));
+    }
+    if let Cmd::Photos { title, newest, save_dir, attach } = &cli.cmd {
+        std::process::exit(cmd_photos(&cli, title, *newest, save_dir, *attach));
     }
     if let Err(e) = run(&cli) {
         eprintln!("[중단:{}] {}", e.code, e.message);

@@ -15,8 +15,13 @@
 kkt-manual-exporter
 ├── AGENT.md                      # 개발 에이전트를 위한 규칙
 ├── README.md
+├── LICENSE                       # MIT
+├── .github/workflows/macos.yml   # Mac 용 빌드와 골든 검증 (수동 실행, 릴리즈에 올리기)
+├── scripts
+│   └── mac-report.sh             # Mac 시험·보고용 (읽기 전용: 환경, 카카오톡 메뉴, 내보내기 형식)
 ├── docs
-│   └── SCHEMA.md                 # 저장 형식과 판정 규칙의 기준 문서
+│   ├── SCHEMA.md                 # 저장 형식과 판정 규칙의 기준 문서
+│   └── RELEASE.md                # 릴리즈 계획 초안
 ├── references
 │   ├── other-projects            # 비교용으로 클론한 외부 저장소 2개 (gitignore, 실행 금지)
 │   └── other-projects-review.md  # 위 2개를 읽고 정리한 비교 문서
@@ -33,7 +38,8 @@ kkt-manual-exporter
 │           │   ├── src
 │           │   └── tests
 │           │       └── data                # 정답 526개와 그것을 만드는 생성기
-│           └── kkt-cli           # `kkt` 실행 파일 (골든이 요구하는 CLI 규격)
+│           ├── kkt-win           # 카카오톡 조작 (Windows 전용): 내보내기 수집, 서랍 사진 저장, 화면 분석
+│           └── kkt-cli           # `kkt` 실행 파일 (골든 CLI 규격 + collect, photos, 더블클릭 안내 마당)
 │
 ├── tests                         # 목적별 테스트
 │   ├── python                    # Python 구현의 정확성 (내부 함수 단위)
@@ -66,6 +72,10 @@ kkt-manual-exporter
 - 마우스가 봇에게 넘어가되, 최대한 빠르게 수행하도록 자동화
     - 키보드 명령어를 통한 긴급 탈출 구현 (ctrl+d)
 - 암호화는 2차 구현 목표로.
+- 더블클릭으로 쓸 수 있어야 한다: 인자 없이 `kkt.exe` 를 실행하면 안내 마당이 뜬다 (방 선택 → 수집 → 정리 → 사진 저장·연결).
+    - 저장 위치는 `다운로드\kkt-manual-export-archive` (`archive/`, `exports/`)
+    - 사진은 아직 연결되지 않은 사진 메시지 수만큼만 최신 사진을 받는다
+- Mac 은 카카오톡 조작을 아직 못 한다. 직접 내보낸 TXT 를 골라 정리하는 모드만 있다 (Mac 관측 후 수집을 만든다).
 
 ### 명령어
 - Python 테스트: `python3 -m pytest` (저장소 루트)
@@ -73,3 +83,6 @@ kkt-manual-exporter
 - 골든: `python3 tests/golden/run.py --cmd "src/rust/target/release/kkt"`, 최신 확인은 `python3 tests/golden/build.py --check`
 - CLI: `PYTHONPATH=src/python python3 -m kkt --conversation {방ID} ingest {TXT}`. 기본 아카이브는 `data/archive`
 - Windows 쪽 수집 실행은 [dev-environment](references/dev-environment.md) 참고
+- 더블클릭 사용: `kkt.exe` (인자 없음). 명령줄: `kkt collect --title {방 제목} --out {폴더}`, `kkt photos --title {방 제목} [--newest N] [--attach]`
+- Mac 시험·보고: `bash scripts/mac-report.sh` (결과는 `~/Desktop/kkt-mac-report.txt`)
+- 릴리즈: [릴리즈 페이지](https://github.com/jhlee0637/kkt-manual-export/releases). Mac 빌드는 GitHub Actions 의 `macos` 워크플로를 수동 실행한다

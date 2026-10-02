@@ -2,7 +2,9 @@
 //! 순수 로직(`plan_rect`, `plan_restore`, `Guard`)은 모든 OS 에서 시험할 수 있다.
 
 pub mod collect;
+pub mod grid;
 pub mod guard;
+pub mod photos;
 pub mod sys;
 pub mod window;
 
