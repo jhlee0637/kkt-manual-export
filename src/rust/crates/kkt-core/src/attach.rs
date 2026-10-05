@@ -15,10 +15,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+/// '사진 N장' 묶음을 저장하면 첫 장은 KakaoTalk_날짜_시각.jpg, 나머지는 같은 시각에 _01, _02 … 가 붙는다 (실측).
+/// 한 묶음의 사진은 taken_at 이 모두 같으므로, 같은 시각 안의 순서는 이름순(접미사 없는 것 먼저, _01, _02 …)이다.
 fn name_re() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
     R.get_or_init(|| {
-        Regex::new(r"(?i)^KakaoTalk_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})(\d{3})?(?: \(\d+\))?\.(jpg|jpeg|png|gif|webp|bmp)$").unwrap()
+        Regex::new(r"(?i)^KakaoTalk_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})(\d{3})?(?:_\d{2})?(?: \(\d+\))?\.(jpg|jpeg|png|gif|webp|bmp)$").unwrap()
     })
 }
 
@@ -45,9 +47,26 @@ pub struct Found {
     pub attachment_id: String,
 }
 
-/// (저장 대상 목록, 건너뛴 파일 수). 같은 내용(sha256)은 하나로 묶고 이름은 aliases 로 둔다.
+/// ' (1)' 같은 재저장 접미사를 뗀 이름. 같은 사진을 다시 저장하면 이 접미사만 붙는다.
+pub fn base_name(name: &str) -> String {
+    if let Some(dot) = name.rfind('.') {
+        let (stem, ext) = name.split_at(dot);
+        if ext.len() > 1 && stem.ends_with(')') {
+            if let Some(open) = stem.rfind(" (") {
+                let digits = &stem[open + 2..stem.len() - 1];
+                if !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()) {
+                    return format!("{}{}", &stem[..open], ext);
+                }
+            }
+        }
+    }
+    name.to_string()
+}
+
+/// (저장 대상 목록, 건너뛴 파일 수). 같은 사진을 다시 저장한 사본(' (1)' 등, 이름이 같고 내용이 같은 것)만 하나로 묶고
+/// 이름은 aliases 로 둔다. 이름(시각)이 다르면 내용이 같아도 별개다 (같은 사진을 다른 메시지로 다시 보냈을 수 있다).
 pub fn scan(src_dir: &Path) -> Result<(Vec<Found>, usize)> {
-    let mut by_sha: IndexMap<String, Found> = IndexMap::new();
+    let mut by_key: IndexMap<String, Found> = IndexMap::new();
     let mut skipped = 0usize;
     let mut entries: Vec<(String, PathBuf)> = fs::read_dir(src_dir)?
         .filter_map(|e| e.ok())
@@ -67,13 +86,14 @@ pub fn scan(src_dir: &Path) -> Result<(Vec<Found>, usize)> {
         let sha = sha256_hex(&data);
         let ms = caps.get(7).map_or("000", |m| m.as_str());
         let taken = format!("{}-{}-{}T{}:{}:{}.{}+09:00", &caps[1], &caps[2], &caps[3], &caps[4], &caps[5], &caps[6], ms);
-        if let Some(f) = by_sha.get_mut(&sha) {
+        let key = format!("{sha}\u{0}{}", base_name(&name));
+        if let Some(f) = by_key.get_mut(&key) {
             f.aliases.push(name);
             continue;
         }
         let ext = caps[8].to_lowercase();
-        by_sha.insert(
-            sha.clone(),
+        by_key.insert(
+            key,
             Found {
                 attachment_id: String::new(),
                 sha256: sha,
@@ -87,7 +107,7 @@ pub fn scan(src_dir: &Path) -> Result<(Vec<Found>, usize)> {
             },
         );
     }
-    let mut files: Vec<Found> = by_sha.into_values().collect();
+    let mut files: Vec<Found> = by_key.into_values().collect();
     files.sort_by(|a, b| a.taken_at.cmp(&b.taken_at)); // 안정 정렬
     Ok((files, skipped))
 }
@@ -98,14 +118,29 @@ pub fn ingest_attachments(arch: &Archive, src_dir: &Path) -> Result<Value> {
     let mut events: Vec<Value> = Vec::new();
     let conv = &arch.conversation_id;
 
-    let new_files: Vec<Found> = files
-        .into_iter()
-        .map(|mut f| {
-            f.attachment_id = format!("att_{}", &f.sha256[..16]);
-            f
-        })
-        .filter(|f| !st.attachments.contains_key(&f.attachment_id))
+    // 이미 보관한 첨부인지는 (내용, 재저장 접미사를 뗀 이름) 으로 본다. 같은 사진을 다른 시각에 다시 보낸 것은 새 첨부다.
+    let known: std::collections::HashSet<(String, String)> = st
+        .attachments
+        .values()
+        .flat_map(|a| std::iter::once(&a.filename).chain(a.aliases.iter()).map(move |n| (a.sha256.clone(), base_name(n))))
         .collect();
+    let mut used_ids: std::collections::HashSet<String> = st.attachments.keys().cloned().collect();
+    let mut new_files: Vec<Found> = Vec::new();
+    for mut f in files {
+        if known.contains(&(f.sha256.clone(), base_name(&f.filename))) {
+            continue;
+        }
+        let mut aid = format!("att_{}", &f.sha256[..16]);
+        let mut n = 2;
+        while used_ids.contains(&aid) {
+            // 같은 내용의 두 번째 첨부부터는 _2, _3 …
+            aid = format!("att_{}_{n}", &f.sha256[..16]);
+            n += 1;
+        }
+        used_ids.insert(aid.clone());
+        f.attachment_id = aid;
+        new_files.push(f);
+    }
     for f in &new_files {
         let key = format!("attachments/image/{}/{}.{}", &f.sha256[..2], f.sha256, f.ext);
         let dest = arch.dir.join(&key);
@@ -177,4 +212,19 @@ pub fn ingest_attachments(arch: &Archive, src_dir: &Path) -> Result<Value> {
         arch.commit(&mut st, valid, &mut events)?;
     }
     Ok(json!({"saved": new_files.len(), "linked": linked_count, "skipped_non_kakao_files": skipped, "unmatched_groups": unmatched}))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn base_name_strips_only_the_resave_suffix() {
+        assert_eq!(base_name("KakaoTalk_20261006_080735851 (1).jpg"), "KakaoTalk_20261006_080735851.jpg");
+        assert_eq!(base_name("KakaoTalk_20261006_080735851_01 (12).jpg"), "KakaoTalk_20261006_080735851_01.jpg");
+        assert_eq!(base_name("KakaoTalk_20261006_080735851.jpg"), "KakaoTalk_20261006_080735851.jpg");
+        assert_eq!(base_name("a (x).jpg"), "a (x).jpg");
+        assert_eq!(base_name("a ().jpg"), "a ().jpg");
+        assert_eq!(base_name("a (1)"), "a (1)");
+    }
 }

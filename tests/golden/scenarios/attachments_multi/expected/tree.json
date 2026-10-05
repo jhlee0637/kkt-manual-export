@@ -28,11 +28,11 @@
     "size": 14
   },
   "kt_golden/events.jsonl": {
-    "sha256": "93401ff80a8ca72be6b3b40d5f431a90935fb6171d10ee3397ca266495328988",
-    "size": 10870
+    "sha256": "8e1c1620d4fbf0e28ee281ecfba1deee3ac9277bd5c1f63b835d28db334f13a5",
+    "size": 12365
   },
   "kt_golden/raw/e1.txt": {
-    "sha256": "85475f80345b9c0bfbae0c01a741d32c8628b55e42c9219525d959999e717173",
-    "size": 362
+    "sha256": "a78b770748c082a78b0a51a33e04d36f733df5162abd1e8baf349629ba00e5be",
+    "size": 394
   }
 }

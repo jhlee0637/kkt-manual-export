@@ -15,7 +15,7 @@
         "conversation": "kt_golden",
         "events": {
           "conversation.title_observed": 1,
-          "message.observed": 6,
+          "message.observed": 7,
           "participant.observed": 2
         },
         "export": "e1.txt",
@@ -38,8 +38,8 @@
     "exit": 0,
     "stdout": [
       {
-        "linked": 6,
-        "saved": 7,
+        "linked": 7,
+        "saved": 8,
         "skipped_non_kakao_files": 0,
         "unmatched_groups": [
           {
@@ -93,15 +93,15 @@
     "exit": 0,
     "stdout": [
       {
-        "attachments": 7,
+        "attachments": 8,
         "conversation_id": "kt_golden",
         "deleted_markers_unmatched": 0,
         "exports_ingested": 1,
-        "image_messages": 4,
-        "image_messages_linked": 3,
+        "image_messages": 5,
+        "image_messages_linked": 4,
         "last_export_saved_at": "2026-10-02T12:00:00+09:00",
         "messages_by_status": {
-          "active": 6
+          "active": 7
         },
         "participants": 2,
         "title": "회의방"

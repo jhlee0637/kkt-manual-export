@@ -80,29 +80,29 @@ fn prompt(text: &str) -> Option<String> {
     }
 }
 
-/// 아직 사진 파일과 연결되지 않은, 지금 보이는 사진 수 ('사진 3장' 한 줄은 3장).
-fn unlinked_images(archive: &Path, conv: &str) -> usize {
+/// 아직 사진 파일과 연결되지 않은, 지금 보이는 사진 메시지 수와 사진 장수의 합 ('사진 3장' 한 줄은 메시지 1개, 3장).
+/// 서랍의 타일은 메시지 단위라서 타일은 메시지 수만큼 고르고, 저장되는 파일은 장수의 합만큼 생긴다.
+fn unlinked_images(archive: &Path, conv: &str) -> (usize, usize) {
     match Archive::new(archive, conv).load() {
         Ok((st, _)) => st
             .registry
             .values()
             .filter(|r| r.kind == "message" && r.content_type == "image" && r.status == "active" && r.attachment_ids.is_empty())
-            .map(|r| r.image_count as usize)
-            .sum(),
-        Err(_) => 0,
+            .fold((0, 0), |(m, p), r| (m + 1, p + r.image_count as usize)),
+        Err(_) => (0, 0),
     }
 }
 
 /// 서랍에서 최신 사진을 (연결 안 된 사진 메시지 수만큼) 저장하고 메시지와 연결한다.
 fn save_photos(title: &str, archive: &Path, conv: &str) {
-    let n = unlinked_images(archive, conv);
-    if n == 0 {
+    let (msgs, n) = unlinked_images(archive, conv);
+    if msgs == 0 {
         println!("저장할 새 사진이 없습니다.");
         return;
     }
-    println!("\n사진 {n}장이 아직 저장되지 않았습니다. 서랍에서 저장합니다. 마우스와 키보드에서 손을 떼세요. (중단: Ctrl+D)");
+    println!("\n사진 {n}장(메시지 {msgs}개)이 아직 저장되지 않았습니다. 서랍에서 저장합니다. 마우스와 키보드에서 손을 떼세요. (중단: Ctrl+D)");
     let dir = photos::default_save_dir();
-    let opt = photos::Options { newest: Some(n), ..Default::default() };
+    let opt = photos::Options { newest: Some(msgs), expect_files: Some(n), ..Default::default() };
     match photos::download_photos(title, &dir, &Guard::new(), &opt) {
         Ok(meta) => {
             let saved = meta["saved_files"].as_array().map_or(0, |a| a.len());

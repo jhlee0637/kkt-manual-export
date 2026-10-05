@@ -368,15 +368,20 @@ def sc_schema(root):
 
 def sc_attach_multi(root):
     s = Scn(root, "attachments_multi",
-            "사진 여러 장을 한 번에 보내면 '사진 N장' 한 줄이다. 같은 분의 사진 수 합계(N 의 합)와 파일 수가 같을 때만 메시지 순서대로 N장씩 연결하고, 다르면 연결하지 않고 photos 와 함께 보고한다")
+            "사진 여러 장을 한 번에 보내면 '사진 N장' 한 줄이다. 같은 분의 사진 수 합계(N 의 합)와 파일 수가 같을 때만 메시지 순서대로 N장씩 연결하고, 다르면 연결하지 않고 photos 와 함께 보고한다. 같은 사진을 다른 시각에 다시 보낸 것은 별개 첨부이고, ' (1)' 재저장본만 별칭이다")
     png = b"\x89PNG\r\n\x1a\n"
-    for i, ms in enumerate(["000", "100", "200", "300"]):
-        s.photo(f"KakaoTalk_20261002_0900{i:02d}{ms}.png", png + f"multi-{i}".encode())   # 9:00 에 4장
+    # 9:00 에 4장: 앞 메시지(사진 3장)는 같은 시각의 묶음이라 _01, _02 가 붙고, 다음 메시지(사진 1장)는 다른 시각
+    s.photo("KakaoTalk_20261002_090000123.png", png + b"multi-0")
+    s.photo("KakaoTalk_20261002_090000123_01.png", png + b"multi-1")
+    s.photo("KakaoTalk_20261002_090000123_02.png", png + b"multi-2")
+    s.photo("KakaoTalk_20261002_090030000.png", png + b"multi-3")
     s.photo("KakaoTalk_20261002_100000000.png", png + b"lonely")                            # 10:00 에 1장 (메시지는 2장)
     s.photo("KakaoTalk_20261002_110000000.png", png + b"pair-a")
     s.photo("KakaoTalk_20261002_110030000.png", png + b"pair-b")                            # 11:00 에 2장
+    s.photo("KakaoTalk_20261002_113000000.png", png + b"pair-a")                            # 11:30 에 같은 사진을 다시 보냄 (내용이 11:00 의 한 장과 같다)
+    s.photo("KakaoTalk_20261002_113000000 (1).png", png + b"pair-a")                        # 같은 파일의 재저장본은 별칭
     s.txt("e1.txt", "2026-10-02 12:00:00", ["[민수] [오전 9:00] 사진 3장", "[지영] [오전 9:00] 사진",
-                                              "[민수] [오전 10:00] 사진 2장", "[민수] [오전 11:00] 사진 2장",
+                                              "[민수] [오전 10:00] 사진 2장", "[민수] [오전 11:00] 사진 2장", "[민수] [오전 11:30] 사진",
                                               "[지영] [오전 11:05] 사진 찍었어", "[지영] [오전 11:06] 사진 0장"])
     s.ingest("e1.txt")
     s.cli("--conversation", CONV, "attach", "{dir}/photos")

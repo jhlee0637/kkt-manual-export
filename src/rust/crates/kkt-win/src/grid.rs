@@ -150,6 +150,20 @@ pub fn find_cells(img: &Image) -> Vec<Cell> {
     cells
 }
 
+/// `저장 결과` 팝업(300x200)이 아직 저장 중인가. 저장 중에는 `파일 저장` 제목과 노란 진행 막대, `취소` 버튼이 보인다.
+/// 이때 `Esc` 를 누르면 저장이 취소되므로 결과 팝업(`폴더 열기`)으로 바뀐 뒤에만 닫아야 한다 (실측).
+pub fn save_in_progress(img: &Image) -> bool {
+    let mut yellow = 0;
+    for y in (img.h * 55 / 100)..(img.h * 70 / 100) {
+        for x in 0..img.w {
+            if is_yellow(img.rgb(x, y)) {
+                yellow += 1;
+            }
+        }
+    }
+    yellow >= 60
+}
+
 /// 선택 바의 다운로드 아이콘 위치 (창 안 좌표). 실측: (너비−40, 높이−30).
 pub fn download_icon(img: &Image) -> (i32, i32) {
     (img.w as i32 - 40, img.h as i32 - 30)
@@ -264,6 +278,14 @@ pub(crate) mod tests {
     #[test]
     fn empty_drawer_has_no_cells() {
         assert!(find_cells(&blank(840, 600)).is_empty());
+    }
+
+    #[test]
+    fn progress_popup_has_yellow_bar() {
+        let mut img = blank(300, 200);
+        assert!(!save_in_progress(&img), "결과 팝업에는 노란 막대가 없다");
+        fill(&mut img, 24, 127, 250, 3, (255, 215, 0)); // 진행 막대 (y≈127)
+        assert!(save_in_progress(&img));
     }
 
     #[test]

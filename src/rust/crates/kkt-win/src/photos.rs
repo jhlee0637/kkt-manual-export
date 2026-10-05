@@ -21,15 +21,18 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub struct Options {
-    /// 저장할 최신 사진 수. `None` 이면 전부.
+    /// 고를 최신 **타일** 수. `None` 이면 전부. 서랍의 타일은 사진이 아니라 메시지 하나다
+    /// (`사진 16장` 한 번에 보낸 묶음은 타일 하나이고, 저장하면 파일 16개가 된다).
     pub newest: Option<usize>,
+    /// 저장될 것으로 기대하는 파일 수 (묶음은 장수의 합). `None` 이면 타일 수.
+    pub expect_files: Option<usize>,
     pub width: i32,
     pub height: i32,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { newest: None, width: window::DEFAULT_WIDTH, height: window::DEFAULT_HEIGHT }
+        Options { newest: None, expect_files: None, width: window::DEFAULT_WIDTH, height: window::DEFAULT_HEIGHT }
     }
 }
 
@@ -138,7 +141,9 @@ fn select_photos(drawer: Hwnd, limit: usize, guard: &Guard) -> Result<Selection,
         let r = sys::window_rect(drawer).ok_or_else(|| WinError::Window("GetWindowRect 실패".into()))?;
         let Some(img) = sys::capture_window(drawer) else { return fail("서랍 창을 캡처하지 못했다") };
         let cells = grid::find_cells(&img);
-        let fresh: Vec<&Cell> = cells.iter().filter(|c| !seen.contains(&c.sig)).collect();
+        // 선택된 칸은 건너뛴다. 우리가 이미 누른 칸이고, 선택하면 썸네일이 줄어들어 서명이 달라져서
+        // 스크롤 뒤에 다시 보이면 새 사진으로 오인된다 (실측).
+        let fresh: Vec<&Cell> = cells.iter().filter(|c| !c.selected && !seen.contains(&c.sig)).collect();
         if fresh.is_empty() {
             stall += 1;
         } else {
@@ -149,15 +154,13 @@ fn select_photos(drawer: Hwnd, limit: usize, guard: &Guard) -> Result<Selection,
                 break;
             }
             seen.insert(c.sig);
-            if !c.selected {
-                front(drawer, guard, "서랍 창")?;
-                require_focus(drawer, "서랍 창")?;
-                let (cx, cy) = c.circle();
-                // 썸네일 위로 먼저 올려서 선택 원을 띄운 뒤 누른다
-                hover(r.left + c.x + 62, r.top + c.y + 62, guard)?;
-                click_at(r.left + cx, r.top + cy, guard)?;
-                guard.sleep(0.25)?;
-            }
+            front(drawer, guard, "서랍 창")?;
+            require_focus(drawer, "서랍 창")?;
+            let (cx, cy) = c.circle();
+            // 썸네일 위로 먼저 올려서 선택 원을 띄운 뒤 누른다
+            hover(r.left + c.x + 62, r.top + c.y + 62, guard)?;
+            click_at(r.left + cx, r.top + cy, guard)?;
+            guard.sleep(0.25)?;
             selected += 1;
         }
         if selected >= limit || stall >= 2 {
@@ -214,7 +217,7 @@ fn run(save_dir: &Path, guard: &Guard, opt: &Options, info: &window::Info, meta:
     }
     if let Some(n) = opt.newest {
         if sel.selected < n {
-            warn(meta, &format!("최신 {n}장을 요청했지만 서랍에서 {}장만 찾았다", sel.selected));
+            warn(meta, &format!("최신 {n}개를 요청했지만 서랍에서 {}개만 찾았다", sel.selected));
         }
     }
 
@@ -231,7 +234,8 @@ fn run(save_dir: &Path, guard: &Guard, opt: &Options, info: &window::Info, meta:
     require_focus(drawer, "서랍 창")?;
     click_at(r.left + dx, r.top + dy, guard)?;
 
-    // 저장 결과 팝업 (별도 창, 제목 없음). `Esc` 로 닫는다.
+    // 저장 팝업 (별도 창, 제목 없음, 300x200). 저장 중에는 `파일 저장`(진행 막대, `취소`)이고, 끝나면 `저장 결과`
+    // (`폴더 열기`)로 바뀐다. 저장 중에 `Esc` 를 누르면 저장이 취소되므로 결과로 바뀐 뒤에만 닫는다.
     let popup = guard.wait_until(
         || {
             sys::top_level_windows(pid)
@@ -245,7 +249,19 @@ fn run(save_dir: &Path, guard: &Guard, opt: &Options, info: &window::Info, meta:
     match popup {
         None => warn(meta, "저장 결과 팝업을 찾지 못했다. 열려 있다면 직접 닫아야 한다"),
         Some(p) => {
-            guard.sleep(0.3)?;
+            let finished = guard.wait_until(
+                || match sys::capture_window(p) {
+                    Some(img) if !grid::save_in_progress(&img) => Some(()),
+                    None => Some(()), // 캡처할 수 없으면 더 기다릴 근거가 없다
+                    _ => None,
+                },
+                300.0,
+                0.4,
+            )?;
+            if finished.is_none() {
+                return fail("사진 저장이 5분 안에 끝나지 않았다 (팝업을 닫지 않았다)");
+            }
+            guard.sleep(0.5)?;
             if sys::foreground() != p && !sys::bring_to_front(p, guard, 2.0)? {
                 warn(meta, "저장 결과 팝업에 포커스를 주지 못해 닫지 않았다");
             } else if sys::foreground() == p {
@@ -258,7 +274,7 @@ fn run(save_dir: &Path, guard: &Guard, opt: &Options, info: &window::Info, meta:
     }
 
     // 저장 폴더의 새 파일로 확인한다
-    let expected = sel.selected;
+    let expected = opt.expect_files.unwrap_or(sel.selected);
     let new_files = |dir: &Path| -> Vec<String> {
         let now = listing(dir);
         let mut v: Vec<String> = now.keys().filter(|k| !before.contains_key(*k)).cloned().collect();
@@ -270,7 +286,7 @@ fn run(save_dir: &Path, guard: &Guard, opt: &Options, info: &window::Info, meta:
     meta["saved_files"] = json!(files);
     meta["seen_cells"] = Value::from(sel.seen);
     if ok.is_none() {
-        warn(meta, &format!("저장된 새 파일이 {}개뿐이다 (선택 {expected}개). 저장 폴더가 기본 위치가 아니거나 이미 있는 이름일 수 있다", files.len()));
+        warn(meta, &format!("저장된 새 파일이 {}개뿐이다 (기대 {expected}개). 저장 폴더가 기본 위치가 아니거나 저장이 중단됐을 수 있다", files.len()));
     }
     Ok(())
 }

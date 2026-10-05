@@ -54,7 +54,7 @@ enum Cmd {
     Participants,
     ParticipantLink { keep: String, merge: String },
     Collect { title: String, out: String, width: i32, height: i32, hold: f64, ingest: bool },
-    Photos { title: String, newest: Option<usize>, save_dir: Option<String>, attach: bool },
+    Photos { title: String, newest: Option<usize>, expect_files: Option<usize>, save_dir: Option<String>, attach: bool },
 }
 
 struct Cli {
@@ -162,7 +162,7 @@ fn parse_args(args: &[String]) -> std::result::Result<Cli, Usage> {
             }
         }
         "photos" => {
-            let (mut title, mut newest, mut save_dir, mut attach) = (None, None, None, false);
+            let (mut title, mut newest, mut expect_files, mut save_dir, mut attach) = (None, None, None, None, false);
             let mut j = 0;
             while j < rest.len() {
                 if rest[j] == "--attach" {
@@ -171,6 +171,8 @@ fn parse_args(args: &[String]) -> std::result::Result<Cli, Usage> {
                     title = Some(v);
                 } else if let Some(v) = opt(rest, &mut j, "--newest")? {
                     newest = Some(v.parse().or_else(|_| usage_err(format!("--newest: invalid int value: {v:?}")))?);
+                } else if let Some(v) = opt(rest, &mut j, "--expect-files")? {
+                    expect_files = Some(v.parse().or_else(|_| usage_err(format!("--expect-files: invalid int value: {v:?}")))?);
                 } else if let Some(v) = opt(rest, &mut j, "--save-dir")? {
                     save_dir = Some(v);
                 } else {
@@ -179,7 +181,7 @@ fn parse_args(args: &[String]) -> std::result::Result<Cli, Usage> {
                 j += 1;
             }
             match title {
-                Some(title) => Cmd::Photos { title, newest, save_dir, attach },
+                Some(title) => Cmd::Photos { title, newest, expect_files, save_dir, attach },
                 None => return usage_err("the following arguments are required: --title"),
             }
         }
@@ -326,10 +328,10 @@ fn cmd_collect(cli: &Cli, title: &str, out: &str, width: i32, height: i32, hold:
 }
 
 /// 서랍의 사진을 저장한다 (Windows 전용). `--attach` 면 저장 폴더를 읽어 메시지와 연결한다.
-fn cmd_photos(cli: &Cli, title: &str, newest: Option<usize>, save_dir: &Option<String>, attach: bool) -> i32 {
+fn cmd_photos(cli: &Cli, title: &str, newest: Option<usize>, expect_files: Option<usize>, save_dir: &Option<String>, attach: bool) -> i32 {
     use kkt_win::{guard::Guard, photos, WinError};
     let dir = save_dir.as_ref().map(PathBuf::from).unwrap_or_else(photos::default_save_dir);
-    let opt = photos::Options { newest, ..Default::default() };
+    let opt = photos::Options { newest, expect_files, ..Default::default() };
     let meta = match photos::download_photos(title, &dir, &Guard::new(), &opt) {
         Ok(m) => m,
         Err(WinError::Aborted) => {
@@ -388,8 +390,8 @@ fn main() {
     if let Cmd::Collect { title, out, width, height, hold, ingest } = &cli.cmd {
         std::process::exit(cmd_collect(&cli, title, out, *width, *height, *hold, *ingest));
     }
-    if let Cmd::Photos { title, newest, save_dir, attach } = &cli.cmd {
-        std::process::exit(cmd_photos(&cli, title, *newest, save_dir, *attach));
+    if let Cmd::Photos { title, newest, expect_files, save_dir, attach } = &cli.cmd {
+        std::process::exit(cmd_photos(&cli, title, *newest, *expect_files, save_dir, *attach));
     }
     if let Err(e) = run(&cli) {
         eprintln!("[중단:{}] {}", e.code, e.message);

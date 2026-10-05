@@ -89,3 +89,38 @@ def test_multi_photo_count_mismatch_is_reported_not_guessed(tmp_path):
     r = ingest_attachments(arch, src)
     assert r["linked"] == 0
     assert r["unmatched_groups"] == [{"minute": "2026-10-02 08:07", "image_messages": 1, "files": 2, "photos": 3}]
+
+
+def test_bundle_suffix_names_are_kakao_photos_in_name_order(tmp_path):
+    """실측: '사진 N장' 묶음은 KakaoTalk_날짜_시각.jpg, _01.jpg, _02.jpg … 로 저장된다 (같은 시각)."""
+    src = tmp_path / "src"
+    src.mkdir()
+    for n in ["KakaoTalk_20261006_080735851_10.jpg", "KakaoTalk_20261006_080735851_02.jpg",
+              "KakaoTalk_20261006_080735851.jpg", "KakaoTalk_20261006_080735851_01.jpg"]:
+        png(src / n, n.encode())
+    png(src / "KakaoTalk_20261006_080735851 (1).jpg", b"KakaoTalk_20261006_080735851.jpg")   # 첫 장의 중복 저장본
+    files, skipped = scan(src)
+    assert skipped == []
+    assert [f["filename"] for f in files] == ["KakaoTalk_20261006_080735851.jpg", "KakaoTalk_20261006_080735851_01.jpg",
+                                              "KakaoTalk_20261006_080735851_02.jpg", "KakaoTalk_20261006_080735851_10.jpg"]
+    assert files[0]["aliases"] == ["KakaoTalk_20261006_080735851 (1).jpg"]
+    assert {f["taken_at"] for f in files} == {"2026-10-06T08:07:35.851+09:00"}
+
+
+def test_same_photo_sent_twice_is_two_attachments_resave_is_alias(tmp_path):
+    """실측: 같은 사진을 다른 메시지로 다시 보냈다. 시각(이름)이 다르면 내용이 같아도 별개 첨부이고 각각 연결된다."""
+    arch = Archive(tmp_path / "a", "kt_test")
+    arch.ingest(write_export(tmp_path, "e1.txt", "2026-10-02 12:00:00", ["[me] [오전 9:00] 사진", "[me] [오전 9:30] 사진"]))
+    src = tmp_path / "src"
+    src.mkdir()
+    png(src / "KakaoTalk_20261002_090000000.png", b"same")
+    png(src / "KakaoTalk_20261002_093000000.png", b"same")              # 같은 내용, 다른 시각
+    png(src / "KakaoTalk_20261002_093000000 (1).png", b"same")          # 같은 파일의 재저장본
+    r = ingest_attachments(arch, src)
+    assert r["saved"] == 2 and r["linked"] == 2 and r["unmatched_groups"] == []
+    state, _ = arch.load()
+    ids = sorted(state.attachments)
+    assert len(ids) == 2 and ids[1] == ids[0] + "_2"                     # att_<sha16>, att_<sha16>_2
+    assert sum(len(a["aliases"]) for a in state.attachments.values()) == 1
+    assert len({a["storage_key"] for a in state.attachments.values()}) == 1   # 보관본 파일은 하나
+    assert ingest_attachments(arch, src)["saved"] == 0                    # 다시 해도 그대로

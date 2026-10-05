@@ -18,14 +18,29 @@ from .archive import Archive, sha256_bytes
 
 _NAME_RE = re.compile(
     r"^KakaoTalk_(?P<y>\d{4})(?P<mo>\d{2})(?P<d>\d{2})_(?P<h>\d{2})(?P<mi>\d{2})(?P<s>\d{2})(?P<ms>\d{3})?"
-    r"(?: \(\d+\))?\.(?P<ext>jpg|jpeg|png|gif|webp|bmp)$", re.IGNORECASE)
+    r"(?:_\d{2})?(?: \(\d+\))?\.(?P<ext>jpg|jpeg|png|gif|webp|bmp)$", re.IGNORECASE)
+# '사진 N장' 묶음을 저장하면 첫 장은 KakaoTalk_날짜_시각.jpg, 나머지는 같은 시각에 _01, _02 … 가 붙는다 (실측).
+# 한 묶음의 사진은 taken_at 이 모두 같으므로, 같은 시각 안의 순서는 이름순(접미사 없는 것 먼저, _01, _02 …)이다.
 _MIME = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif",
          "webp": "image/webp", "bmp": "image/bmp"}
 
 
+_DUP_SUFFIX_RE = re.compile(r" \(\d+\)(?=\.[^.]+$)")
+
+
+def base_name(name: str) -> str:
+    """' (1)' 같은 재저장 접미사를 뗀 이름. 같은 사진을 다시 저장하면 이 접미사만 붙는다."""
+    return _DUP_SUFFIX_RE.sub("", name)
+
+
 def scan(src_dir: Path) -> tuple[list, list]:
-    """(저장 대상 목록, 건너뛴 파일명). 같은 내용(sha256)은 하나로 묶고 이름은 aliases로 둔다."""
-    by_sha: dict = {}
+    """(저장 대상 목록, 건너뛴 파일명).
+
+    같은 사진을 다시 저장한 사본(' (1)' 등, 이름이 같고 내용이 같은 것)만 하나로 묶고 이름은 aliases로 둔다.
+    이름(시각)이 다르면 내용이 같아도 별개다: 같은 사진을 다른 메시지로 다시 보냈을 수 있다 (실측: 같은 사진을
+    여러 묶음에 올림). 이때 보관본(blob)은 해시로 하나만 두고 첨부 기록만 따로 둔다.
+    """
+    by_key: dict = {}
     skipped: list = []
     # ' (1)' 같은 중복 저장본이 대표 이름이 되지 않도록, 접미사 없는 이름을 먼저 본다
     for p in sorted(Path(src_dir).iterdir(), key=lambda q: (" (" in q.name, q.name)):
@@ -37,16 +52,17 @@ def scan(src_dir: Path) -> tuple[list, list]:
         sha = sha256_bytes(data)
         ms = m["ms"] or "000"
         taken = f"{m['y']}-{m['mo']}-{m['d']}T{m['h']}:{m['mi']}:{m['s']}.{ms}+09:00"
-        if sha in by_sha:
-            by_sha[sha]["aliases"].append(p.name)
+        key = (sha, base_name(p.name))
+        if key in by_key:
+            by_key[key]["aliases"].append(p.name)
             continue
-        by_sha[sha] = {
+        by_key[key] = {
             "sha256": sha, "filename": p.name, "aliases": [], "size": len(data),
             "mime_type": _MIME[m["ext"].lower()], "ext": m["ext"].lower(),
             "taken_at": taken, "date": f"{m['y']}-{m['mo']}-{m['d']}",
             "hhmm": f"{m['h']}:{m['mi']}", "src": p,
         }
-    return sorted(by_sha.values(), key=lambda f: f["taken_at"]), skipped
+    return sorted(by_key.values(), key=lambda f: f["taken_at"]), skipped
 
 
 def ingest_attachments(arch: Archive, src_dir: Path) -> dict:
@@ -55,7 +71,19 @@ def ingest_attachments(arch: Archive, src_dir: Path) -> dict:
     events: list = []
     base = {"conversation_id": arch.conversation_id}
 
-    new_files = [f for f in files if f"att_{f['sha256'][:16]}" not in state.attachments]
+    # 이미 보관한 첨부인지는 (내용, 재저장 접미사를 뗀 이름) 으로 본다. 같은 사진을 다른 시각에 다시 보낸 것은 새 첨부다.
+    known = {(a["sha256"], base_name(n)) for a in state.attachments.values() for n in [a["filename"], *a["aliases"]]}
+    used_ids = set(state.attachments)
+    new_files = []
+    for f in files:
+        if (f["sha256"], base_name(f["filename"])) in known:
+            continue
+        aid, n = f"att_{f['sha256'][:16]}", 2
+        while aid in used_ids:                       # 같은 내용의 두 번째 첨부부터는 _2, _3 …
+            aid, n = f"att_{f['sha256'][:16]}_{n}", n + 1
+        used_ids.add(aid)
+        f["attachment_id"] = aid
+        new_files.append(f)
     for f in new_files:
         key = f"attachments/image/{f['sha256'][:2]}/{f['sha256']}.{f['ext']}"
         dest = arch.dir / key
@@ -64,7 +92,6 @@ def ingest_attachments(arch: Archive, src_dir: Path) -> dict:
             shutil.copy2(f["src"], dest)
         if sha256_bytes(dest.read_bytes()) != f["sha256"]:
             raise RuntimeError(f"복사본의 해시가 다르다: {dest}")
-        f["attachment_id"] = f"att_{f['sha256'][:16]}"
         events.append({**base, "type": "attachment.saved", "attachment_id": f["attachment_id"],
                        "sha256": f["sha256"], "filename": f["filename"], "aliases": f["aliases"],
                        "size": f["size"], "mime_type": f["mime_type"], "storage_key": key,

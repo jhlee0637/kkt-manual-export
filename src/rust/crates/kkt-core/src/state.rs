@@ -56,6 +56,9 @@ pub struct IngestInfo {
 pub struct Attachment {
     pub attachment_id: String,
     pub taken_at: String,
+    pub sha256: String,
+    pub filename: String,
+    pub aliases: Vec<String>,
 }
 
 #[derive(Debug, Default)]
@@ -235,7 +238,15 @@ impl State {
             }
             "attachment.saved" => {
                 let id = sv(ev, "attachment_id")?;
-                self.attachments.insert(id.clone(), Attachment { attachment_id: id, taken_at: sv(ev, "taken_at")? });
+                let aliases: Vec<String> = ev
+                    .get("aliases")
+                    .and_then(|v| v.as_array())
+                    .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+                    .unwrap_or_default();
+                self.attachments.insert(
+                    id.clone(),
+                    Attachment { attachment_id: id, taken_at: sv(ev, "taken_at")?, sha256: sv(ev, "sha256")?, filename: sv(ev, "filename")?, aliases },
+                );
             }
             "attachment.linked" => {
                 let aid = sv(ev, "attachment_id")?;
