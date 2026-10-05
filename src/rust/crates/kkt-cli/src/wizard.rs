@@ -80,14 +80,15 @@ fn prompt(text: &str) -> Option<String> {
     }
 }
 
-/// 아직 사진 파일과 연결되지 않은, 지금 보이는 사진 메시지 수.
+/// 아직 사진 파일과 연결되지 않은, 지금 보이는 사진 수 ('사진 3장' 한 줄은 3장).
 fn unlinked_images(archive: &Path, conv: &str) -> usize {
     match Archive::new(archive, conv).load() {
         Ok((st, _)) => st
             .registry
             .values()
-            .filter(|r| r.kind == "message" && r.content_type == "image" && r.status == "active" && r.attachment_id.as_deref().map_or(true, |a| a.is_empty()))
-            .count(),
+            .filter(|r| r.kind == "message" && r.content_type == "image" && r.status == "active" && r.attachment_ids.is_empty())
+            .map(|r| r.image_count as usize)
+            .sum(),
         Err(_) => 0,
     }
 }

@@ -32,7 +32,7 @@ def _iso(date: str, hhmm: str) -> str:
 
 def _content(e: Entry) -> list:
     if e.content_type == "image":
-        return [{"type": "image", "attachment_id": None}]
+        return [{"type": "image", "attachment_id": None} for _ in range(e.image_count)]
     if e.content_type == "emoticon":
         return [{"type": "emoticon"}]
     return [{"type": "text", "text": e.text}]
@@ -304,6 +304,7 @@ def _block(reg, old_block, new_block, new, assigned, vanished, emit, new_id, obs
                  sender=e.sender, participant_id=pid_for(e.sender), text=e.text, content_type=e.content_type,
                  timestamp=_iso(e.date, e.hhmm), timestamp_precision="minute", ordinal=j,
                  content=_content(e),
+                 **({"image_count": e.image_count} if e.content_type == "image" and e.image_count > 1 else {}),
                  # TXT에는 답장 정보가 없다. 답장이 아니라는 뜻이 아니라 '알 수 없다'는 뜻이다.
                  reply_to={"status": "unknown_from_txt"})
         elif e.kind == "deleted_marker":

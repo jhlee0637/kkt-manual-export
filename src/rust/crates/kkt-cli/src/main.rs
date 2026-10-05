@@ -278,7 +278,7 @@ fn cmd_status(cli: &Cli) -> Result<()> {
         "last_export_saved_at": st.ingests.last().and_then(|i| i.saved_at.clone()),
         "messages_by_status": count_by(&st, |r| (r.kind == "message").then(|| r.status.clone())),
         "image_messages": msgs.iter().filter(|r| r.content_type == "image").count(),
-        "image_messages_linked": msgs.iter().filter(|r| r.content_type == "image" && r.attachment_id.as_deref().map_or(false, |a| !a.is_empty())).count(),
+        "image_messages_linked": msgs.iter().filter(|r| r.content_type == "image" && r.attachment_ids.len() as u64 >= r.image_count).count(),
         "deleted_markers_unmatched": st.registry.values().filter(|r| r.kind == "deleted_marker").count(),
         "attachments": st.attachments.len(),
     }));

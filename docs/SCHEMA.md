@@ -41,7 +41,7 @@ attachments/image/<sha256 앞 2자>/<sha256>.<ext>
 | `participant.observed` | participant_id, name |
 | `participant.renamed` | participant_id, from, to, matched_messages, evidence{messages, system_lines}, basis(`consistent_relabel`/`restored_previous_name`/`forced_by_user`) |
 | `participant.linked` | participant_id(유지), merged_participant_id, current_name, basis=`manual` |
-| `message.observed` | message_id, participant_id, date, hhmm, sender, text, content_type, content[], timestamp, timestamp_precision=`minute`, ordinal |
+| `message.observed` | message_id, participant_id, date, hhmm, sender, text, content_type, content[], timestamp, timestamp_precision=`minute`, ordinal, image_count(사진 2장 이상일 때만) |
 | `deleted_marker.observed` | 삭제 표식만 처음 보인 경우. 원래 내용은 알 수 없다. inferred_after/before |
 | `system.observed` | 초대 등 시스템 줄 |
 | `message.deleted_for_everyone` | message_id, inferred_after/before |
@@ -49,7 +49,7 @@ attachments/image/<sha256 앞 2자>/<sha256>.<ext>
 | `message.reappeared` | 사라졌던 같은 내용이 다시 보임 |
 | `message.edit_candidate` | previous_text, current_text, confidence=`candidate` |
 | `attachment.saved` | attachment_id, sha256, filename, aliases[], taken_at(초·밀리초), storage_key |
-| `attachment.linked` | message_id, attachment_id, basis=`minute_match_ordered` |
+| `attachment.linked` | message_id, attachment_id, basis=`minute_match_ordered` (`사진 N장` 메시지는 파일마다 하나씩 N개) |
 | `export.ingested` | (종결) export_name, export_sha256, saved_at, visible[] (내보내기에 보인 id 순서), warnings |
 | `attach.committed` | (종결) 사진 저장·연결 묶음을 닫는다. 추가 필드 없음 |
 | `state.committed` | (종결) 참가자 수동 연결 묶음을 닫는다. 추가 필드 없음 |
@@ -66,11 +66,15 @@ attachments/image/<sha256 앞 2자>/<sha256>.<ext>
 - 이후 내보내기는 직전 내보내기와 **순서 기준으로 정렬**해서 같은 ID를 이어받는다.
 
 ## 사진 파일과 메시지의 연결
-- 사진은 TXT 파일 내에서 단순하게 `사진`으로 표시되며, 다른 메시지와 동일하게 '날짜'와 '시간(분)'을 가진다.
+- 사진은 TXT 파일 내에서 `사진`으로 표시되며, 다른 메시지와 동일하게 '날짜'와 '시간(분)'을 가진다.
+- 한 번에 여러 장을 보내면 장마다 한 줄이 아니라 **`사진 N장` 한 줄**로 표시된다 (예: `사진 16장`). 이 줄은 `content_type: image`, `image_count: N` 으로 기록한다.
+  - `사진`은 1장이다. 글자 그대로 "사진 2장"이라고 쓴 메시지와는 TXT만으로 구분할 수 없다 (`이모티콘`과 같은 한계).
+  - `사진 0장`처럼 숫자가 1 미만이거나, `사진 2장 찍었어`처럼 줄 전체가 이 꼴이 아니면 일반 글이다.
 - 따라서 저장한 사진 파일과 메시지를 연결할 때는 다음의 조건을 만족해야한다.
   - 메시지와 파일의 시간이 분 단위로 동일.
-  - 1분 내에 여러 사진을 보내어 메시지가 여러개인 경우, 메시지의 수와 파일의 수가 동일해야함.
-- 만약 다르면 연결하지 않고, `unmatched_groups`로 보고한다. (추측금지)
+  - 같은 분의 **사진 수의 합**(`사진` 은 1, `사진 N장` 은 N)과 파일의 수가 동일해야함.
+- 조건을 만족하면 파일을 시각 순서대로, 메시지 순서대로 연결한다. `사진 N장` 메시지는 다음 N개의 파일을 가져간다.
+- 만약 다르면 연결하지 않고, `unmatched_groups`로 보고한다. (추측금지) 사진 수의 합이 메시지 수와 다르면 `photos`(사진 수의 합)도 함께 보고한다.
 
 ## 중복저장본
 - 같은 이름의 파일이 이미 있을 때, 새 파일명 뒤에 ` (1)` 같은 구분자가 붙는다.
@@ -157,4 +161,3 @@ attachments/image/<sha256 앞 2자>/<sha256>.<ext>
 ## 관측하지 못한 것 (추측하지 않고 text로 둔다)
 - 동영상, 파일, 링크 미리보기의 TXT 형식.
 - 다른 사람이 수정/삭제한 메시지의 표시.
-- 사진 여러 장을 한 번에 보낸 경우의 줄 형식.

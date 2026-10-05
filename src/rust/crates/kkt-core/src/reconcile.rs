@@ -35,7 +35,7 @@ fn iso(date: &str, hhmm: &str) -> String {
 
 fn content(e: &Entry) -> Value {
     match e.content_type.as_str() {
-        "image" => json!([{"type": "image", "attachment_id": null}]),
+        "image" => Value::Array((0..e.image_count).map(|_| json!({"type": "image", "attachment_id": null})).collect()),
         "emoticon" => json!([{"type": "emoticon"}]),
         _ => json!([{"type": "text", "text": e.text}]),
     }
@@ -371,25 +371,26 @@ impl<'a> Ctx<'a> {
                     let sender = e.sender.clone().unwrap_or_default();
                     let mid = self.new_id("kmsg", &[&e.date, &hhmm, &sender, &e.text]);
                     let pid = self.pid_for(&sender); // Python 과 같은 순서: new_id -> pid_for(participant.observed) -> message.observed
-                    self.emit(
-                        "message.observed",
-                        vec![
-                            ("message_id", mid.clone().into()),
-                            ("kind", "message".into()),
-                            ("date", e.date.clone().into()),
-                            ("hhmm", hhmm.clone().into()),
-                            ("sender", sender.into()),
-                            ("participant_id", pid.into()),
-                            ("text", e.text.clone().into()),
-                            ("content_type", e.content_type.clone().into()),
-                            ("timestamp", iso(&e.date, &hhmm).into()),
-                            ("timestamp_precision", "minute".into()),
-                            ("ordinal", j.into()),
-                            ("content", content(e)),
-                            // TXT에는 답장 정보가 없다. 답장이 아니라는 뜻이 아니라 '알 수 없다'는 뜻이다.
-                            ("reply_to", json!({"status": "unknown_from_txt"})),
-                        ],
-                    );
+                    let mut fields: Vec<(&str, Value)> = vec![
+                        ("message_id", mid.clone().into()),
+                        ("kind", "message".into()),
+                        ("date", e.date.clone().into()),
+                        ("hhmm", hhmm.clone().into()),
+                        ("sender", sender.into()),
+                        ("participant_id", pid.into()),
+                        ("text", e.text.clone().into()),
+                        ("content_type", e.content_type.clone().into()),
+                        ("timestamp", iso(&e.date, &hhmm).into()),
+                        ("timestamp_precision", "minute".into()),
+                        ("ordinal", j.into()),
+                        ("content", content(e)),
+                        // TXT에는 답장 정보가 없다. 답장이 아니라는 뜻이 아니라 '알 수 없다'는 뜻이다.
+                        ("reply_to", json!({"status": "unknown_from_txt"})),
+                    ];
+                    if e.content_type == "image" && e.image_count > 1 {
+                        fields.push(("image_count", e.image_count.into())); // 2장 이상일 때만 기록한다 (Python 과 같다)
+                    }
+                    self.emit("message.observed", fields);
                     mid
                 }
                 Kind::DeletedMarker => {

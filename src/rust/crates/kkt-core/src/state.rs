@@ -30,6 +30,10 @@ pub struct Record {
     pub version: u64,
     pub history: Vec<(String, u64)>,
     pub attachment_id: Option<String>,
+    /// 연결된 사진 파일들 (한 메시지가 '사진 3장' 이면 최대 3개). `attachment_id` 는 그중 첫 번째
+    pub attachment_ids: Vec<String>,
+    /// 사진 메시지의 사진 수 (기본 1)
+    pub image_count: u64,
     pub first_observed_at: Option<String>,
     pub participant_id: Option<String>,
 }
@@ -159,6 +163,8 @@ impl State {
                         version: 1,
                         history: Vec::new(),
                         attachment_id: None,
+                        attachment_ids: Vec::new(),
+                        image_count: ev.get("image_count").and_then(|v| v.as_u64()).unwrap_or(1),
                         first_observed_at: so(ev, "observed_at"),
                         participant_id: so(ev, "participant_id"),
                     },
@@ -233,7 +239,9 @@ impl State {
             }
             "attachment.linked" => {
                 let aid = sv(ev, "attachment_id")?;
-                self.rec_mut(ev)?.attachment_id = Some(aid);
+                let r = self.rec_mut(ev)?;
+                r.attachment_ids.push(aid);
+                r.attachment_id = Some(r.attachment_ids[0].clone());
             }
             "export.ingested" => {
                 self.visible = ev

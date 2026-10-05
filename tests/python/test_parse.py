@@ -62,6 +62,19 @@ def test_text_that_looks_like_image_but_is_not():
     assert p.entries[0].content_type == "text"
 
 
+def test_multi_photo_line_has_count():
+    """실측: 한 번에 여러 장을 보내면 '사진 16장' 한 줄이다."""
+    p = parse_export(make_export("2026-10-06 08:11:32", [
+        "[.] [오전 8:07] 사진 16장", "[.] [오전 8:07] 사진 2장", "[.] [오전 8:07] 사진", "[.] [오전 8:08] 사진 1장"]))
+    assert [(e.content_type, e.image_count) for e in p.entries] == [("image", 16), ("image", 2), ("image", 1), ("image", 1)]
+
+
+def test_photo_like_text_is_not_image():
+    p = parse_export(make_export("2026-10-06 08:11:32", [
+        "[.] [오전 8:07] 사진 0장", "[.] [오전 8:07] 사진 2장 찍었어", "[.] [오전 8:07] 사진 장", "[.] [오전 8:07] 사진  2장"]))
+    assert [e.content_type for e in p.entries] == ["text"] * 4
+
+
 def test_emoticon_line_and_reply_looks_like_plain_message():
     """실측: 이모티콘은 '이모티콘' 한 줄, 답장은 인용 없이 본문만 일반 메시지로 나온다."""
     p = parse_export(make_export("2026-10-02 10:40:18", [

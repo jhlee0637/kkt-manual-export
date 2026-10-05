@@ -28,7 +28,7 @@
 - 릴리즈 스크립트가 제외 목록대로 묶고, 묶은 결과에 대화 원문·사진이 없는지 검사한다.
 
 ## 릴리즈 전 검증
-- `python3 -m pytest`, `cargo test --release`, 골든 23/23(Python과 Rust 모두), `build.py --check`
+- `python3 -m pytest`, `cargo test --release`, 골든 24/24(Python과 Rust 모두), `build.py --check`
 - 바이너리 크기 기록 (현재 약 820KB, 수집 계층 이식 후 재측정)
 - 실제 방으로 수집 후 같은 TXT 재반영이 전부 건너뛰어지는지(멱등) 확인
 - Windows 10과 11 각각에서 실행 확인

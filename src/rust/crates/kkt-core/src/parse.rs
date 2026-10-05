@@ -9,7 +9,7 @@
 //! --------------- 2026년 10월 2일 금요일 ---------------
 //! .님이 A님, B님을 초대했습니다.            <- 시스템 이벤트
 //! [.] [오전 9:27] Test                      <- 메시지
-//! [.] [오전 9:28] 사진                      <- 사진은 '사진' 한 줄
+//! [.] [오전 9:28] 사진                      <- 사진은 '사진' 한 줄 (한 번에 여러 장이면 '사진 16장' 한 줄)
 //! 메시지가 삭제되었습니다.                  <- '모두에게 삭제'. 보낸이/시각 없음
 //! ```
 //!
@@ -47,6 +47,8 @@ pub struct Entry {
     pub sender: Option<String>,
     pub text: String,
     pub content_type: String,
+    /// content_type 이 image 일 때 사진 수 ('사진 16장' 이면 16)
+    pub image_count: usize,
     pub raw_lines: Vec<String>,
 }
 
@@ -118,6 +120,19 @@ pub fn split_lines(text: &str) -> Vec<String> {
     parts
 }
 
+/// "사진" 은 1장, "사진 16장" 은 16장 (한 번에 여러 장 보낸 줄, 실측). 그 밖에는 사진이 아니다.
+/// 글자 그대로 "사진 2장" 이라고 보낸 메시지와는 TXT 만으로 구분할 수 없다. 숫자는 ASCII 만 받는다.
+fn image_count(text: &str) -> Option<usize> {
+    if text == "사진" {
+        return Some(1);
+    }
+    let digits = text.strip_prefix("사진 ")?.strip_suffix('장')?;
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse::<usize>().ok().filter(|&n| n >= 1)
+}
+
 fn close(cur: &mut Option<Entry>, entries: &mut Vec<Entry>) {
     if let Some(mut e) = cur.take() {
         while e.raw_lines.last().map(|l| l.is_empty()).unwrap_or(false) {
@@ -125,8 +140,9 @@ fn close(cur: &mut Option<Entry>, entries: &mut Vec<Entry>) {
         }
         e.text = e.raw_lines.join("\n");
         if e.kind == Kind::Message {
-            if e.text == "사진" {
+            if let Some(n) = image_count(&e.text) {
                 e.content_type = "image".to_string();
+                e.image_count = n;
             } else if e.text == "이모티콘" {
                 e.content_type = "emoticon".to_string();
             }
@@ -188,6 +204,7 @@ pub fn parse_export(text: &str) -> ParsedExport {
                 sender: Some(m[1].to_string()),
                 text: String::new(),
                 content_type: "text".to_string(),
+                image_count: 1,
                 raw_lines: vec![m[5].to_string()],
             });
             continue;
@@ -203,6 +220,7 @@ pub fn parse_export(text: &str) -> ParsedExport {
                 sender: None,
                 text: line.to_string(),
                 content_type: "text".to_string(),
+                image_count: 1,
                 raw_lines: vec![line.to_string()],
             });
             continue;
@@ -218,6 +236,7 @@ pub fn parse_export(text: &str) -> ParsedExport {
                 sender: None,
                 text: line.to_string(),
                 content_type: "text".to_string(),
+                image_count: 1,
                 raw_lines: vec![line.to_string()],
             });
             continue;
@@ -291,5 +310,15 @@ mod tests {
         let p = parse_export(&format!("\u{feff}{}", export(&["[me] [오전 9:00] l1", "l2", "", "l4", "[me] [오전 9:01] next"])));
         assert_eq!(p.entries[0].text, "l1\nl2\n\nl4");
         assert_eq!(p.entries[1].text, "next");
+    }
+
+    #[test]
+    fn image_count_lines() {
+        assert_eq!(image_count("사진"), Some(1));
+        assert_eq!(image_count("사진 16장"), Some(16));
+        assert_eq!(image_count("사진 1장"), Some(1));
+        for text in ["사진 0장", "사진 2장 찍었어", "사진 장", "사진  2장", "사진 ２장", "사진 -1장", "사진2장", "사진찍었어"] {
+            assert_eq!(image_count(text), None, "{text}");
+        }
     }
 }

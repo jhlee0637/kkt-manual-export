@@ -8,7 +8,7 @@
     --------------- 2026년 10월 2일 금요일 ---------------
     .님이 A님, B님을 초대했습니다.            <- 시스템 이벤트
     [.] [오전 9:27] Test                      <- 메시지
-    [.] [오전 9:28] 사진                      <- 사진은 '사진' 한 줄
+    [.] [오전 9:28] 사진                      <- 사진은 '사진' 한 줄 (한 번에 여러 장이면 '사진 16장' 한 줄)
     메시지가 삭제되었습니다.                  <- '모두에게 삭제'. 보낸이/시각 없음
 
 관측으로 알게 된 한계:
@@ -17,7 +17,7 @@
 - 수정된 메시지에는 표시가 없다.
 - 답장(인용)은 TXT에 **아무 흔적도 없다**. 화면에는 '○○에게 답장 / 인용문 / 본문'으로 보이지만
   내보내기에는 본문만 일반 메시지로 나온다. 답장 관계는 TXT로는 복원할 수 없다.
-- 사진은 '사진', 이모티콘은 '이모티콘' 한 줄이다.
+- 사진은 '사진', 이모티콘은 '이모티콘' 한 줄이다. 한 번에 여러 장 보내면 '사진 N장' 한 줄이다 (실측).
 - 동영상, 파일, 링크의 형식은 아직 관측하지 못했다. 알 수 없는 형식은 추측하지 않고 text로 둔다.
 """
 from __future__ import annotations
@@ -44,7 +44,8 @@ _SYSTEM_RES = [
     re.compile(r".+님이 들어왔습니다\.$"),
     re.compile(r".+님이 나갔습니다\.$"),
 ]
-_IMAGE_RE = re.compile(r"^사진$")
+# 사진 한 장은 "사진", 여러 장을 한 번에 보내면 "사진 16장" 한 줄이다 (실측). 글자 그대로 "사진 2장"이라고 보낸 메시지와는 TXT만으로 구분할 수 없다.
+_IMAGE_RE = re.compile(r"^사진(?: ([0-9]+)장)?$")
 # 이모티콘도 '이모티콘' 한 줄로만 나온다 (어떤 이모티콘인지는 알 수 없다).
 # 사용자가 글자 그대로 '이모티콘'이라고 보낸 메시지와는 TXT만으로 구분할 수 없다.
 _EMOTICON_RE = re.compile(r"^이모티콘$")
@@ -61,6 +62,7 @@ class Entry:
     sender: Optional[str] = None
     text: str = ""
     content_type: str = "text"      # text | image
+    image_count: int = 1            # content_type 이 image 일 때 사진 수 ('사진 16장' 이면 16)
     raw_lines: list = field(default_factory=list)
 
 
@@ -107,8 +109,10 @@ def parse_export(text: str) -> ParsedExport:
             while cur.raw_lines and cur.raw_lines[-1] == "":
                 cur.raw_lines.pop()
             cur.text = "\n".join(cur.raw_lines)
-            if cur.kind == "message" and _IMAGE_RE.match(cur.text):
+            m_img = _IMAGE_RE.match(cur.text) if cur.kind == "message" else None
+            if m_img and (m_img.group(1) is None or int(m_img.group(1)) >= 1):
                 cur.content_type = "image"
+                cur.image_count = int(m_img.group(1)) if m_img.group(1) else 1
             elif cur.kind == "message" and _EMOTICON_RE.match(cur.text):
                 cur.content_type = "emoticon"
             entries.append(cur)

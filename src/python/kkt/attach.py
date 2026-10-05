@@ -1,8 +1,8 @@
 """카카오톡에서 저장한 사진을 아카이브에 들이고 사진 메시지와 연결한다.
 
 연결 근거: 저장된 파일명 KakaoTalk_YYYYMMDD_HHMMSSmmm.ext 의 시각(초, 밀리초 포함)과
-TXT의 '[오전 9:28] 사진' 의 분 단위 시각. 같은 날짜/분 안에서 사진 메시지 수와 파일 수가
-같을 때만 시각 순서대로 짝짓는다. 개수가 다르면 추측하지 않고 연결하지 않는다.
+TXT의 '[오전 9:28] 사진' 의 분 단위 시각. 같은 날짜/분 안에서 사진 수(메시지 수가 아니라 '사진 3장' 같은 줄은 3장)와
+파일 수가 같을 때만 메시지 순서, 시각 순서대로 짝짓는다. 개수가 다르면 추측하지 않고 연결하지 않는다.
 
 주의: 카카오톡 기본 저장 폴더에는 사용자의 다른 파일이 섞여 있다. 이 모듈은 파일명이
 KakaoTalk_날짜_시각 패턴인 것만 읽고, 원본은 수정하지 않는다 (복사만 한다).
@@ -75,26 +75,32 @@ def ingest_attachments(arch: Archive, src_dir: Path) -> dict:
     for f in new_files:
         all_att[f["attachment_id"]] = {"attachment_id": f["attachment_id"], "taken_at": f["taken_at"],
                                        "date": f["date"], "hhmm": f["hhmm"]}
-    linked_att = {r["attachment_id"] for r in state.registry.values() if r["attachment_id"]}
+    linked_att = {a for r in state.registry.values() for a in r["attachment_ids"]}
     msgs, atts = defaultdict(list), defaultdict(list)
     for r in state.registry.values():
-        if r["kind"] == "message" and r["content_type"] == "image" and not r["attachment_id"]:
-            msgs[(r["date"], r["hhmm"])].append(r["id"])
+        if r["kind"] == "message" and r["content_type"] == "image" and not r["attachment_ids"]:
+            msgs[(r["date"], r["hhmm"])].append((r["id"], r["image_count"]))
     for a in all_att.values():
         if a["attachment_id"] not in linked_att:
             d, t = a["taken_at"][:10], a["taken_at"][11:16]
             atts[(d, t)].append(a)
     unmatched = []
-    for grp, mids in msgs.items():
+    for grp, mlist in msgs.items():
         alist = sorted(atts.get(grp, []), key=lambda a: a["taken_at"])
-        if len(mids) == len(alist):
-            for mid, a in zip(mids, alist):
-                events.append({**base, "type": "attachment.linked", "message_id": mid,
-                               "attachment_id": a["attachment_id"], "basis": "minute_match_ordered",
-                               "observed_at": a["taken_at"]})
+        want = sum(n for _, n in mlist)                  # '사진 3장' 한 줄은 사진 3장
+        if want == len(alist):
+            it = iter(alist)
+            for mid, n in mlist:
+                for _ in range(n):
+                    a = next(it)
+                    events.append({**base, "type": "attachment.linked", "message_id": mid,
+                                   "attachment_id": a["attachment_id"], "basis": "minute_match_ordered",
+                                   "observed_at": a["taken_at"]})
         else:
-            unmatched.append({"minute": f"{grp[0]} {grp[1]}", "image_messages": len(mids),
-                              "files": len(alist)})
+            u = {"minute": f"{grp[0]} {grp[1]}", "image_messages": len(mlist), "files": len(alist)}
+            if want != len(mlist):
+                u["photos"] = want
+            unmatched.append(u)
 
     if events:
         events.append({**base, "type": "attach.committed", "observed_at": events[0]["observed_at"]})

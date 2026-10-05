@@ -45,7 +45,7 @@ kkt-manual-exporter
 │   ├── python                    # Python 구현의 정확성 (내부 함수 단위)
 │   └── golden                    # 구현 간 동등성 (Python, Rust 등 어느 구현이든)
 │       ├── README.md             # 통과 조건, CLI 규격, 이식 시 주의점
-│       └── scenarios             # 시나리오 23개 (모두 합성 데이터)
+│       └── scenarios             # 시나리오 24개 (모두 합성 데이터)
 │           └── room_rename       # 시나리오 하나의 예
 │               ├── steps.json    # 실행할 CLI 호출 순서
 │               ├── e1.txt, e2.txt, e3.txt   # 입력 내보내기

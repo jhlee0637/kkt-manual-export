@@ -131,11 +131,11 @@ pub fn ingest_attachments(arch: &Archive, src_dir: &Path) -> Result<Value> {
         all_att.insert(f.attachment_id.clone(), f.taken_at.clone());
     }
     let linked: std::collections::HashSet<String> =
-        st.registry.values().filter_map(|r| r.attachment_id.clone()).filter(|a| !a.is_empty()).collect();
-    let mut msgs: IndexMap<(String, String), Vec<String>> = IndexMap::new();
+        st.registry.values().flat_map(|r| r.attachment_ids.iter().cloned()).collect();
+    let mut msgs: IndexMap<(String, String), Vec<(String, u64)>> = IndexMap::new();
     for r in st.registry.values() {
-        if r.kind == "message" && r.content_type == "image" && r.attachment_id.as_deref().map_or(true, |a| a.is_empty()) {
-            msgs.entry((r.date.clone(), r.hhmm.clone().unwrap_or_default())).or_default().push(r.id.clone());
+        if r.kind == "message" && r.content_type == "image" && r.attachment_ids.is_empty() {
+            msgs.entry((r.date.clone(), r.hhmm.clone().unwrap_or_default())).or_default().push((r.id.clone(), r.image_count));
         }
     }
     let mut atts: IndexMap<(String, String), Vec<(String, String)>> = IndexMap::new();
@@ -149,15 +149,24 @@ pub fn ingest_attachments(arch: &Archive, src_dir: &Path) -> Result<Value> {
     for (grp, mids) in &msgs {
         let mut alist = atts.get(grp).cloned().unwrap_or_default();
         alist.sort_by(|a, b| a.1.cmp(&b.1)); // 안정 정렬
-        if mids.len() == alist.len() {
-            for (mid, (aid, taken)) in mids.iter().zip(alist.iter()) {
-                events.push(json!({
-                    "conversation_id": conv, "type": "attachment.linked", "message_id": mid,
-                    "attachment_id": aid, "basis": "minute_match_ordered", "observed_at": taken,
-                }));
+        let want: u64 = mids.iter().map(|(_, n)| n).sum(); // '사진 3장' 한 줄은 사진 3장
+        if want == alist.len() as u64 {
+            let mut it = alist.iter();
+            for (mid, n) in mids {
+                for _ in 0..*n {
+                    let (aid, taken) = it.next().expect("개수가 같음을 확인했다");
+                    events.push(json!({
+                        "conversation_id": conv, "type": "attachment.linked", "message_id": mid,
+                        "attachment_id": aid, "basis": "minute_match_ordered", "observed_at": taken,
+                    }));
+                }
             }
         } else {
-            unmatched.push(json!({"minute": format!("{} {}", grp.0, grp.1), "image_messages": mids.len(), "files": alist.len()}));
+            let mut u = json!({"minute": format!("{} {}", grp.0, grp.1), "image_messages": mids.len(), "files": alist.len()});
+            if want != mids.len() as u64 {
+                u["photos"] = want.into();
+            }
+            unmatched.push(u);
         }
     }
 

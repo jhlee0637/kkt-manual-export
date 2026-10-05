@@ -92,7 +92,7 @@ def cmd_status(args) -> int:
         "last_export_saved_at": state.ingests[-1]["saved_at"] if state.ingests else None,
         "messages_by_status": dict(Counter(r["status"] for r in msgs)),
         "image_messages": sum(r["content_type"] == "image" for r in msgs),
-        "image_messages_linked": sum(1 for r in msgs if r["content_type"] == "image" and r["attachment_id"]),
+        "image_messages_linked": sum(1 for r in msgs if r["content_type"] == "image" and len(r["attachment_ids"]) >= r["image_count"]),
         "deleted_markers_unmatched": sum(r["kind"] == "deleted_marker" for r in state.registry.values()),
         "attachments": len(state.attachments),
     }

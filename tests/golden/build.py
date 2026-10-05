@@ -366,9 +366,28 @@ def sc_schema(root):
     s.finish()
 
 
+def sc_attach_multi(root):
+    s = Scn(root, "attachments_multi",
+            "사진 여러 장을 한 번에 보내면 '사진 N장' 한 줄이다. 같은 분의 사진 수 합계(N 의 합)와 파일 수가 같을 때만 메시지 순서대로 N장씩 연결하고, 다르면 연결하지 않고 photos 와 함께 보고한다")
+    png = b"\x89PNG\r\n\x1a\n"
+    for i, ms in enumerate(["000", "100", "200", "300"]):
+        s.photo(f"KakaoTalk_20261002_0900{i:02d}{ms}.png", png + f"multi-{i}".encode())   # 9:00 에 4장
+    s.photo("KakaoTalk_20261002_100000000.png", png + b"lonely")                            # 10:00 에 1장 (메시지는 2장)
+    s.photo("KakaoTalk_20261002_110000000.png", png + b"pair-a")
+    s.photo("KakaoTalk_20261002_110030000.png", png + b"pair-b")                            # 11:00 에 2장
+    s.txt("e1.txt", "2026-10-02 12:00:00", ["[민수] [오전 9:00] 사진 3장", "[지영] [오전 9:00] 사진",
+                                              "[민수] [오전 10:00] 사진 2장", "[민수] [오전 11:00] 사진 2장",
+                                              "[지영] [오전 11:05] 사진 찍었어", "[지영] [오전 11:06] 사진 0장"])
+    s.ingest("e1.txt")
+    s.cli("--conversation", CONV, "attach", "{dir}/photos")
+    s.cli("--conversation", CONV, "attach", "{dir}/photos")
+    s.cli("--conversation", CONV, "status")
+    s.finish()
+
+
 SCENARIOS = [sc_basic, sc_thresholds, sc_dup_tiebreak, sc_tie, sc_delete, sc_missing, sc_edit, sc_realworld, sc_trim, sc_errors, sc_room_rename,
              sc_room_resolution, sc_explicit, sc_member_rename, sc_member_boundary, sc_member_weak, sc_nonretro, sc_format,
-             sc_exotic_separators, sc_attach, sc_crash, sc_schema]
+             sc_exotic_separators, sc_attach, sc_attach_multi, sc_crash, sc_schema]
 
 
 def build(root: Path) -> list:

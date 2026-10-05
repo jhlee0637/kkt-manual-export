@@ -79,7 +79,8 @@ class State:
                 "hhmm": ev.get("hhmm"), "sender": ev.get("sender"), "text": ev["text"],
                 "content_type": ev.get("content_type", "text"),
                 "status": "active", "version": 1, "history": [],
-                "attachment_id": None, "first_observed_at": ev["observed_at"],
+                "attachment_id": None, "attachment_ids": [], "image_count": ev.get("image_count", 1),
+                "first_observed_at": ev["observed_at"],
                 "participant_id": ev.get("participant_id"),
             }
         elif t == "message.deleted_for_everyone":
@@ -129,7 +130,9 @@ class State:
                                    "mime_type", "storage_key", "taken_at", "aliases")
             }
         elif t == "attachment.linked":
-            self.registry[ev["message_id"]]["attachment_id"] = ev["attachment_id"]
+            r = self.registry[ev["message_id"]]
+            r["attachment_ids"].append(ev["attachment_id"])
+            r["attachment_id"] = r["attachment_ids"][0]      # 한 메시지에 여러 장이면 첫 장
         elif t == "export.ingested":
             self.visible = list(ev["visible"])
             self.ingests.append({k: ev[k] for k in ("export_name", "export_sha256", "saved_at")})
