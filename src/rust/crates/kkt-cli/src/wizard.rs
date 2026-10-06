@@ -4,6 +4,7 @@
 //! 저장 폴더 아래 `archive/` 에 정리 결과, `exports/` 에 내보내기 TXT 를 둔다.
 
 use crate::ingest_flow::{ingest_interactive, Asker, Flow};
+use crate::media_plan::{self, MediaRec};
 use crate::settings::{self, LoadStatus, Settings};
 use kkt_core::archive::Archive;
 use kkt_core::attach::ingest_attachments;
@@ -179,60 +180,74 @@ fn prompt(text: &str) -> Option<String> {
     }
 }
 
-/// 서랍에서 골라야 할 최신 타일 수와 그때 저장될 파일 수: `(타일, 파일)`.
-///
-/// 서랍은 사진과 동영상을 메시지 하나당 타일 하나로 최신순으로 보여 준다 (`사진 3장` 묶음도 타일 하나).
-/// 아직 사진 파일과 연결되지 않은 가장 오래된 사진 메시지가 나올 때까지의 최신 사진·동영상 메시지가 대상이다.
-/// 동영상도 타일을 차지하므로 함께 센다 (동영상 파일은 저장되지만 아카이브에 보관하지는 않는다).
-/// 파일 수는 사진 메시지의 장수 합 + 동영상 수다.
-fn media_to_fetch(archive: &Path, conv: &str) -> (usize, usize) {
-    let Ok((st, _)) = Archive::new(archive, conv).load() else { return (0, 0) };
-    let mut media: Vec<(&str, &str, usize, &kkt_core::state::Record)> = st
-        .registry
+/// 아카이브에서 서랍에 타일로 보일 메시지(사진·동영상)를 읽는다.
+fn collect_media(archive: &Path, conv: &str) -> Vec<MediaRec> {
+    let Ok((st, _)) = Archive::new(archive, conv).load() else { return Vec::new() };
+    st.registry
         .values()
         .enumerate()
         .filter(|(_, r)| r.kind == "message" && r.status == "active" && (r.content_type == "image" || r.content_type == "video"))
-        .map(|(i, r)| (r.date.as_str(), r.hhmm.as_deref().unwrap_or(""), i, r))
-        .collect();
-    media.sort_by(|a, b| (a.0, a.1, a.2).cmp(&(b.0, b.1, b.2)));
-    let Some(oldest) = media.iter().position(|m| m.3.content_type == "image" && m.3.attachment_ids.is_empty()) else {
-        return (0, 0);
-    };
-    let files = media[oldest..].iter().map(|m| if m.3.content_type == "image" { m.3.image_count as usize } else { 1 }).sum();
-    (media.len() - oldest, files)
+        .map(|(i, r)| {
+            let is_video = r.content_type == "video";
+            MediaRec {
+                date: r.date.clone(),
+                hhmm: r.hhmm.clone().unwrap_or_default(),
+                order: i,
+                is_video,
+                count: if is_video { 1 } else { r.image_count as usize },
+                unlinked: r.attachment_ids.is_empty(),
+            }
+        })
+        .collect()
 }
 
-/// 서랍에서 최신 사진을 (연결 안 된 사진 메시지 수만큼) 저장하고 메시지와 연결한다.
-fn save_photos(title: &str, settings: &Settings, conv: &str) {
+/// 서랍에서 아직 보관하지 않은 사진(과 동영상)을 저장하고 메시지와 연결한다. 동영상은 설정에 따라 묻는다.
+fn save_photos(title: &str, settings: &mut Settings, cfg_path: &Path, conv: &str) {
     let archive = archive_dir(settings);
-    let (msgs, n) = media_to_fetch(&archive, conv);
-    if msgs == 0 {
+    let media = collect_media(&archive, conv);
+    let (plan, remember) = media_plan::plan(&media, settings.videos, &mut ConsoleAsker);
+    if let Some(v) = remember {
+        settings.videos = v;
+        save_settings(settings, cfg_path);
+    }
+    let Some(plan) = plan else {
         println!("저장할 새 사진이 없습니다.");
         return;
-    }
-    println!("\n사진·동영상 {n}개(서랍의 {msgs}칸)가 아직 저장되지 않았습니다. 서랍에서 저장합니다. 마우스와 키보드에서 손을 떼세요. (마우스를 움직이면 일시정지, 중단: Ctrl+D)");
+    };
+    println!(
+        "\n사진{} {}개(서랍의 {}칸)가 아직 저장되지 않았습니다. 서랍에서 저장합니다. 마우스와 키보드에서 손을 떼세요. (마우스를 움직이면 일시정지, 중단: Ctrl+D)",
+        if plan.keep_videos { "·동영상" } else { "" },
+        plan.files,
+        plan.tiles
+    );
     let dir = settings.kakao_photo_dir.clone();
-    let opt = photos::Options { newest: Some(msgs), expect_files: Some(n), ..Default::default() };
+    let opt = photos::Options { newest: Some(plan.tiles), expect_files: Some(plan.files), skip_videos: !plan.keep_videos, ..Default::default() };
     match photos::download_photos(title, &dir, &Guard::new(), &opt) {
         Ok(meta) => {
             let saved = meta["saved_files"].as_array().map_or(0, |a| a.len());
-            println!("사진 {saved}장을 저장했습니다: {}", dir.display());
+            println!("파일 {saved}개를 저장했습니다: {}", dir.display());
             for w in meta["warnings"].as_array().into_iter().flatten() {
                 println!("주의: {}", w.as_str().unwrap_or_default());
             }
-            match ingest_attachments(&Archive::new(&archive, conv), &dir) {
+            match ingest_attachments(&Archive::new(&archive, conv), &dir, plan.keep_videos) {
                 Ok(r) => {
-                    println!("사진을 보관하고 메시지와 연결했습니다: 새로 보관 {}장, 연결 {}장", r["saved"], r["linked"]);
+                    let vids = r["saved_videos"].as_u64().unwrap_or(0);
+                    println!(
+                        "보관하고 메시지와 연결했습니다: 새로 보관 {}개{}, 연결 {}개",
+                        r["saved"],
+                        if vids > 0 { format!(" (동영상 {vids}개 포함)") } else { String::new() },
+                        r["linked"]
+                    );
                     for g in r["unmatched_groups"].as_array().into_iter().flatten() {
+                        let (kind, n) = if g.get("video_messages").is_some() { ("동영상", &g["video_messages"]) } else { ("사진", &g["image_messages"]) };
                         println!(
-                            "주의: {} 에 사진 메시지 {}개, 파일 {}개라서 연결하지 않았습니다 (추측하지 않습니다)",
+                            "주의: {} 에 {kind} 메시지 {n}개, 파일 {}개라서 연결하지 않았습니다 (추측하지 않습니다)",
                             g["minute"].as_str().unwrap_or_default(),
-                            g["image_messages"],
                             g["files"]
                         );
                     }
                 }
-                Err(e) => println!("사진을 연결하지 못했습니다 [{}]: {}", e.code, e.message),
+                Err(e) => println!("연결하지 못했습니다 [{}]: {}", e.code, e.message),
             }
         }
         Err(WinError::Aborted) => println!("\nCtrl+D 로 중단했습니다. 사진은 반영하지 않았습니다."),
@@ -240,7 +255,7 @@ fn save_photos(title: &str, settings: &Settings, conv: &str) {
     }
 }
 
-fn collect_and_ingest(title: &str, settings: &Settings) -> Outcome {
+fn collect_and_ingest(title: &str, settings: &mut Settings, cfg_path: &Path) -> Outcome {
     println!("\n시작합니다. 마우스와 키보드에서 손을 떼세요. (마우스를 움직이면 일시정지, 중단: Ctrl+D)");
     std::thread::sleep(std::time::Duration::from_secs(2));
     let meta = match collect::export_chat(title, &exports_dir(settings), &Guard::new(), &collect::Options::default()) {
@@ -261,7 +276,7 @@ fn collect_and_ingest(title: &str, settings: &Settings) -> Outcome {
     }
     let (outcome, conv) = ingest_and_summarize(&path, settings);
     if let Some(c) = conv {
-        save_photos(title, settings, &c);
+        save_photos(title, settings, cfg_path, &c);
     }
     outcome
 }
@@ -470,7 +485,7 @@ fn rooms_menu(s: &mut Settings, cfg_path: &Path) -> bool {
         }
         "s" => settings_menu(s, cfg_path),
         _ => match parse_selection(&line, titles.len()) {
-            Ok(picked) => collect_rooms(&titles, &picked, s),
+            Ok(picked) => collect_rooms(&titles, &picked, s, cfg_path),
             Err(msg) => println!("\n{msg}"),
         },
     }
@@ -478,13 +493,13 @@ fn rooms_menu(s: &mut Settings, cfg_path: &Path) -> bool {
 }
 
 /// 고른 방들을 차례로 처리한다. Ctrl+D 로 중단하면 남은 방은 건너뛴다.
-fn collect_rooms(titles: &[String], picked: &[usize], s: &Settings) {
+fn collect_rooms(titles: &[String], picked: &[usize], s: &mut Settings, cfg_path: &Path) {
     let (mut done, mut failed, mut declined, mut remaining) = (0, 0, 0, 0);
     for (k, &i) in picked.iter().enumerate() {
         if picked.len() > 1 {
             println!("\n===== [{}/{}] {} =====", k + 1, picked.len(), titles[i]);
         }
-        match collect_and_ingest(&titles[i], s) {
+        match collect_and_ingest(&titles[i], s, cfg_path) {
             Outcome::Done => done += 1,
             Outcome::Skipped => declined += 1,
             Outcome::Failed => failed += 1,

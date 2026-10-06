@@ -15,6 +15,7 @@ schema_version: 2.0
 events.jsonl      추가 전용 이벤트 로그. 유일한 원본. 상태는 여기서 매번 복원한다.
 raw/              반영한 내보내기 TXT 원본 (삭제하지 않는다)
 attachments/image/<sha256 앞 2자>/<sha256>.<ext>
+attachments/video/<sha256 앞 2자>/<sha256>.mp4     (동영상. 보관을 켠 경우에만 생긴다)
 ```
 
 ## Transaction
@@ -151,9 +152,15 @@ attachments/image/<sha256 앞 2자>/<sha256>.<ext>
 - 같은 이름의 서로 다른 사람은 TXT 로 구분할 수 없다.
 
 ## 동영상
-- TXT에 `동영상` 한 줄로 나온다 (`content_type: video`). 길이나 파일은 알 수 없다.
+- TXT에 `동영상` 한 줄로 나온다 (`content_type: video`). 길이나 크기는 알 수 없다.
 - 글자 그대로 `동영상`이라고 보낸 메시지와는 TXT만으로 구분할 수 없다.
-- 동영상 파일의 보관과 메시지 연결은 아직 구현하지 않았다 (사진만 한다).
+- 카카오톡이 저장하는 파일은 `KakaoTalk_날짜_시각.mp4` 이다 (실측). 사진과 같은 규칙으로 보관·연결한다.
+  - 같은 분의 `동영상` 메시지 수와 `.mp4` 파일 수가 같을 때만 시각 순서대로 연결한다. 다르면 연결하지 않고 `unmatched_groups` 에 `video_messages` 로 보고한다.
+  - 사진과 동영상은 서로 짝지어지지 않는다 (같은 분에 사진과 동영상이 함께 있어도 종류별로 센다).
+  - 보관 파일은 `attachments/video/<sha256 앞 2자>/<sha256>.mp4` 이고, 첨부 ID 규칙은 사진과 같다.
+  - 동영상은 크므로 파일을 조각 단위로 읽어 해시를 구한다.
+- 보관하지 않기로 한 경우(`attach --no-videos`): `.mp4` 는 보관도 연결도 하지 않는다 (`videos_excluded` 로 개수만 알린다). 나중에 끄지 않고 다시 하면 그때 보관·연결한다.
+- `status` 에는 동영상 메시지가 있을 때만 `video_messages`, `video_messages_linked` 가 나타난다.
 
 ## 이모티콘
 - TXT에 `이모티콘` 한 줄로 나온다 (`content_type: emoticon`).

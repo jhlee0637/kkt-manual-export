@@ -18,6 +18,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 mod ingest_flow;
+mod media_plan;
 mod settings;
 mod wizard;
 
@@ -51,12 +52,12 @@ fn opt(args: &[String], i: &mut usize, name: &str) -> std::result::Result<Option
 
 enum Cmd {
     Ingest { files: Vec<String>, force: bool, accept: Vec<String> },
-    Attach(String),
+    Attach { src: String, videos: bool },
     Status,
     Participants,
     ParticipantLink { keep: String, merge: String },
     Collect { title: String, out: String, width: i32, height: i32, hold: f64, ingest: bool },
-    Photos { title: String, newest: Option<usize>, expect_files: Option<usize>, save_dir: Option<String>, attach: bool },
+    Photos { title: String, newest: Option<usize>, expect_files: Option<usize>, save_dir: Option<String>, attach: bool, dry_run: bool, no_videos: bool },
 }
 
 struct Cli {
@@ -108,10 +109,14 @@ fn parse_args(args: &[String]) -> std::result::Result<Cli, Usage> {
             }
             Cmd::Ingest { files, force, accept }
         }
-        "attach" => match rest {
-            [src] if !src.starts_with("--") => Cmd::Attach(src.clone()),
-            _ => return usage_err("attach: expected exactly one argument: src"),
-        },
+        "attach" => {
+            let no_videos = rest.iter().any(|a| a == "--no-videos");
+            let others: Vec<&String> = rest.iter().filter(|a| *a != "--no-videos").collect();
+            match others.as_slice() {
+                [src] if !src.starts_with("--") => Cmd::Attach { src: (*src).clone(), videos: !no_videos },
+                _ => return usage_err("attach: expected exactly one argument: src"),
+            }
+        }
         "status" | "participants" => {
             if !rest.is_empty() {
                 return usage_err(format!("unrecognized arguments: {}", rest.join(" ")));
@@ -165,10 +170,15 @@ fn parse_args(args: &[String]) -> std::result::Result<Cli, Usage> {
         }
         "photos" => {
             let (mut title, mut newest, mut expect_files, mut save_dir, mut attach) = (None, None, None, None, false);
+            let (mut dry_run, mut no_videos) = (false, false);
             let mut j = 0;
             while j < rest.len() {
                 if rest[j] == "--attach" {
                     attach = true;
+                } else if rest[j] == "--dry-run" {
+                    dry_run = true;
+                } else if rest[j] == "--no-videos" {
+                    no_videos = true;
                 } else if let Some(v) = opt(rest, &mut j, "--title")? {
                     title = Some(v);
                 } else if let Some(v) = opt(rest, &mut j, "--newest")? {
@@ -183,7 +193,7 @@ fn parse_args(args: &[String]) -> std::result::Result<Cli, Usage> {
                 j += 1;
             }
             match title {
-                Some(title) => Cmd::Photos { title, newest, expect_files, save_dir, attach },
+                Some(title) => Cmd::Photos { title, newest, expect_files, save_dir, attach, dry_run, no_videos },
                 None => return usage_err("the following arguments are required: --title"),
             }
         }
@@ -268,7 +278,7 @@ fn cmd_status(cli: &Cli) -> Result<()> {
     let a = arch(cli)?;
     let (st, _) = a.load()?;
     let msgs: Vec<_> = st.registry.values().filter(|r| r.kind == "message").collect();
-    print_pretty(&json!({
+    let mut status = json!({
         "conversation_id": a.conversation_id,
         "title": st.title,
         "participants": st.participants.len(),
@@ -279,7 +289,16 @@ fn cmd_status(cli: &Cli) -> Result<()> {
         "image_messages_linked": msgs.iter().filter(|r| r.content_type == "image" && r.attachment_ids.len() as u64 >= r.image_count).count(),
         "deleted_markers_unmatched": st.registry.values().filter(|r| r.kind == "deleted_marker").count(),
         "attachments": st.attachments.len(),
-    }));
+    });
+    if let Some(m) = status.as_object_mut() {
+        let videos: Vec<_> = msgs.iter().filter(|r| r.content_type == "video").collect();
+        if !videos.is_empty() {
+            // 동영상 메시지가 있을 때만 나타나는 키 (기존 출력은 그대로)
+            m.insert("video_messages".into(), videos.len().into());
+            m.insert("video_messages_linked".into(), videos.iter().filter(|r| !r.attachment_ids.is_empty()).count().into());
+        }
+    }
+    print_pretty(&status);
     Ok(())
 }
 
@@ -324,10 +343,10 @@ fn cmd_collect(cli: &Cli, title: &str, out: &str, width: i32, height: i32, hold:
 }
 
 /// 서랍의 사진을 저장한다 (Windows 전용). `--attach` 면 저장 폴더를 읽어 메시지와 연결한다.
-fn cmd_photos(cli: &Cli, title: &str, newest: Option<usize>, expect_files: Option<usize>, save_dir: &Option<String>, attach: bool) -> i32 {
+fn cmd_photos(cli: &Cli, title: &str, newest: Option<usize>, expect_files: Option<usize>, save_dir: &Option<String>, attach: bool, dry_run: bool, no_videos: bool) -> i32 {
     use kkt_win::{guard::Guard, photos, WinError};
     let dir = save_dir.as_ref().map(PathBuf::from).unwrap_or_else(photos::default_save_dir);
-    let opt = photos::Options { newest, expect_files, ..Default::default() };
+    let opt = photos::Options { newest, expect_files, skip_videos: no_videos, dry_run, ..Default::default() };
     let meta = match photos::download_photos(title, &dir, &Guard::new(), &opt) {
         Ok(m) => m,
         Err(WinError::Aborted) => {
@@ -341,7 +360,7 @@ fn cmd_photos(cli: &Cli, title: &str, newest: Option<usize>, expect_files: Optio
     };
     print_line(&meta);
     if attach {
-        let result = arch(cli).and_then(|a| ingest_attachments(&a, &dir));
+        let result = arch(cli).and_then(|a| ingest_attachments(&a, &dir, !no_videos));
         match result {
             Ok(v) => print_pretty(&v),
             Err(e) => {
@@ -356,8 +375,8 @@ fn cmd_photos(cli: &Cli, title: &str, newest: Option<usize>, expect_files: Optio
 fn run(cli: &Cli) -> Result<()> {
     match &cli.cmd {
         Cmd::Ingest { files, force, accept } => cmd_ingest(cli, files, *force, accept),
-        Cmd::Attach(src) => {
-            print_pretty(&ingest_attachments(&arch(cli)?, Path::new(src))?);
+        Cmd::Attach { src, videos } => {
+            print_pretty(&ingest_attachments(&arch(cli)?, Path::new(src), *videos)?);
             Ok(())
         }
         Cmd::Collect { .. } | Cmd::Photos { .. } => unreachable!("main 에서 처리한다"),
@@ -386,8 +405,8 @@ fn main() {
     if let Cmd::Collect { title, out, width, height, hold, ingest } = &cli.cmd {
         std::process::exit(cmd_collect(&cli, title, out, *width, *height, *hold, *ingest));
     }
-    if let Cmd::Photos { title, newest, expect_files, save_dir, attach } = &cli.cmd {
-        std::process::exit(cmd_photos(&cli, title, *newest, *expect_files, save_dir, *attach));
+    if let Cmd::Photos { title, newest, expect_files, save_dir, attach, dry_run, no_videos } = &cli.cmd {
+        std::process::exit(cmd_photos(&cli, title, *newest, *expect_files, save_dir, *attach, *dry_run, *no_videos));
     }
     if let Err(e) = run(&cli) {
         eprintln!("[중단:{}] {}", e.code, e.message);

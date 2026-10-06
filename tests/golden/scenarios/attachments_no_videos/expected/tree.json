@@ -1,0 +1,18 @@
+{
+  "kt_golden/attachments/image/ad/ad7dde7bd01a8653b6ff6d325e2a9ed9c0b03b61de179811578713e6bf27eb5e.png": {
+    "sha256": "ad7dde7bd01a8653b6ff6d325e2a9ed9c0b03b61de179811578713e6bf27eb5e",
+    "size": 18
+  },
+  "kt_golden/attachments/video/75/755734c7b4208790cccab7f733d81befa0bbf8d60a51b502127a9b67fe269f5d.mp4": {
+    "sha256": "755734c7b4208790cccab7f733d81befa0bbf8d60a51b502127a9b67fe269f5d",
+    "size": 22
+  },
+  "kt_golden/events.jsonl": {
+    "sha256": "79ac7fb72b7efa7910ece5ecf16544daafe4465dc4f96bdbdb7a13134610b9ab",
+    "size": 4137
+  },
+  "kt_golden/raw/e1.txt": {
+    "sha256": "09b0942c46ccd691e0263b86515962b0afc7775781503b3749b05d72946ecdf8",
+    "size": 207
+  }
+}

@@ -45,7 +45,7 @@ kkt-manual-exporter
 │   ├── python                    # Python 구현의 정확성 (내부 함수 단위)
 │   └── golden                    # 구현 간 동등성 (Python, Rust 등 어느 구현이든)
 │       ├── README.md             # 통과 조건, CLI 규격, 이식 시 주의점
-│       └── scenarios             # 시나리오 24개 (모두 합성 데이터)
+│       └── scenarios             # 시나리오 26개 (모두 합성 데이터)
 │           └── room_rename       # 시나리오 하나의 예
 │               ├── steps.json    # 실행할 CLI 호출 순서
 │               ├── e1.txt, e2.txt, e3.txt   # 입력 내보내기
@@ -76,6 +76,9 @@ kkt-manual-exporter
 - 더블클릭으로 쓸 수 있어야 한다: 인자 없이 `kkt.exe` 를 실행하면 안내 마당이 뜬다 (방 선택 → 수집 → 정리 → 사진 저장·연결).
     - 저장 위치는 `다운로드\kkt-manual-export-archive` (`archive/`, `exports/`)
     - 사진은 아직 연결되지 않은 사진 메시지 수만큼만 최신 사진을 받는다
+    - 설정(저장 폴더, 카카오톡 사진 저장 폴더, 동영상 보관)은 설정 파일에 기억하고, 파일 위치는 화면 맨 위에 보여 준다
+    - 사람이 정해야 할 때(기록이 크게 줄었을 때, 모호한 방, 이름 변경 의심, 동영상 보관)는 묻는다. 입력이 없으면 가장 안전한 쪽으로 한다
+    - 여러 방을 한 번에 수집하고, 결과 폴더를 바로 열 수 있다
 - Mac 은 카카오톡 조작을 아직 못 한다. 직접 내보낸 TXT 를 골라 정리하는 모드만 있다 (Mac 관측 후 수집을 만든다).
 
 ### 명령어
@@ -84,6 +87,6 @@ kkt-manual-exporter
 - 골든: `python3 tests/golden/run.py --cmd "src/rust/target/release/kkt"`, 최신 확인은 `python3 tests/golden/build.py --check`
 - CLI: `PYTHONPATH=src/python python3 -m kkt --conversation {방ID} ingest {TXT}`. 기본 아카이브는 `data/archive`
 - Windows 쪽 수집 실행은 [dev-environment](references/dev-environment.md) 참고
-- 더블클릭 사용: `kkt.exe` (인자 없음). 명령줄: `kkt collect --title {방 제목} --out {폴더}`, `kkt photos --title {방 제목} [--newest N] [--attach]`
+- 더블클릭 사용: `kkt.exe` (인자 없음). 명령줄: `kkt collect --title {방 제목} --out {폴더}`, `kkt photos --title {방 제목} [--newest N] [--attach] [--no-videos] [--dry-run]`, `kkt attach {폴더} [--no-videos]`
 - Mac 시험·보고: `bash scripts/mac-report.sh` (결과는 `~/Desktop/kkt-mac-report.txt`)
 - 릴리즈: [릴리즈 페이지](https://github.com/jhlee0637/kkt-manual-export/releases). Mac 빌드는 GitHub Actions 의 `macos` 워크플로를 수동 실행한다

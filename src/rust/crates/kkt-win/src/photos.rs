@@ -26,13 +26,17 @@ pub struct Options {
     pub newest: Option<usize>,
     /// 저장될 것으로 기대하는 파일 수 (묶음은 장수의 합). `None` 이면 타일 수.
     pub expect_files: Option<usize>,
+    /// 동영상 타일은 고르지 않는다 (동영상을 보관하지 않을 때).
+    pub skip_videos: bool,
+    /// 아무것도 누르지 않고 서랍을 끝까지 훑어 타일 수만 센다 (진단용).
+    pub dry_run: bool,
     pub width: i32,
     pub height: i32,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { newest: None, expect_files: None, width: window::DEFAULT_WIDTH, height: window::DEFAULT_HEIGHT }
+        Options { newest: None, expect_files: None, skip_videos: false, dry_run: false, width: window::DEFAULT_WIDTH, height: window::DEFAULT_HEIGHT }
     }
 }
 
@@ -171,17 +175,19 @@ fn open_drawer(chat: Hwnd, guard: &Guard) -> Result<Hwnd, WinError> {
 struct Selection {
     selected: usize,
     seen: usize,
+    videos: usize,
 }
 
 #[derive(Default)]
 struct SelState {
     seen: HashSet<u64>,
     selected: usize,
+    videos: usize,
     stall: u32,
 }
 
 /// 서랍 격자의 한 화면을 읽어 새 타일을 고르고 스크롤한다. 끝났으면 `Ok(true)`.
-fn select_round(drawer: Hwnd, limit: usize, guard: &Guard, st: &mut SelState, round: usize) -> Result<bool, WinError> {
+fn select_round(drawer: Hwnd, limit: usize, opt: &Options, guard: &Guard, st: &mut SelState, round: usize) -> Result<bool, WinError> {
     guard.check()?;
     let r = sys::window_rect(drawer).ok_or_else(|| WinError::Window("GetWindowRect 실패".into()))?;
     let Some(img) = sys::capture_window(drawer) else { return fail("서랍 창을 캡처하지 못했다") };
@@ -199,6 +205,17 @@ fn select_round(drawer: Hwnd, limit: usize, guard: &Guard, st: &mut SelState, ro
         if st.selected >= limit {
             break;
         }
+        let video = grid::is_video_tile(&img, c);
+        if opt.dry_run || (video && opt.skip_videos) {
+            // 누르지 않고 지나간다 (진단이거나, 동영상을 보관하지 않는 경우)
+            st.seen.insert(c.sig);
+            if video {
+                st.videos += 1;
+            } else if opt.dry_run {
+                st.selected += 1;
+            }
+            continue;
+        }
         front(drawer, guard, "서랍 창")?;
         require_focus(drawer, "서랍 창")?;
         let (cx, cy) = c.circle();
@@ -208,6 +225,9 @@ fn select_round(drawer: Hwnd, limit: usize, guard: &Guard, st: &mut SelState, ro
         // 누른 직후에 바로 기록한다. 사이에 확인(`Interrupted`)이 끼면 눌렀는데 세지 않은 칸이 생긴다.
         st.seen.insert(c.sig);
         st.selected += 1;
+        if video {
+            st.videos += 1;
+        }
         guard.sleep(0.25)?;
     }
     if st.selected >= limit || st.stall >= 2 {
@@ -223,17 +243,17 @@ fn select_round(drawer: Hwnd, limit: usize, guard: &Guard, st: &mut SelState, ro
 }
 
 /// 서랍 격자에서 최신 타일부터 `limit` 개를 고른다. 마우스 때문에 일시정지하면 그 라운드를 화면부터 다시 읽는다.
-fn select_photos(drawer: Hwnd, limit: usize, guard: &Guard) -> Result<Selection, WinError> {
+fn select_photos(drawer: Hwnd, limit: usize, opt: &Options, guard: &Guard) -> Result<Selection, WinError> {
     let mut st = SelState::default();
     for round in 0..400 {
-        match select_round(drawer, limit, guard, &mut st, round) {
+        match select_round(drawer, limit, opt, guard, &mut st, round) {
             Ok(true) => break,
             Ok(false) => {}
             Err(WinError::Interrupted) => continue,
             Err(e) => return Err(e),
         }
     }
-    Ok(Selection { selected: st.selected, seen: st.seen.len() })
+    Ok(Selection { selected: st.selected, seen: st.seen.len(), videos: st.videos })
 }
 
 /// 사진을 저장한다. `save_dir` 는 카카오톡이 저장하는 폴더 (기본: `문서\카카오톡 받은 파일`).
@@ -291,8 +311,13 @@ fn run(save_dir: &Path, guard: &Guard, opt: &Options, info: &window::Info, meta:
         guard.sleep(0.6)
     })?;
 
-    let sel = select_photos(drawer, opt.newest.unwrap_or(usize::MAX), guard)?;
+    let sel = select_photos(drawer, opt.newest.unwrap_or(usize::MAX), opt, guard)?;
     meta["selected"] = Value::from(sel.selected);
+    meta["tiles_seen"] = Value::from(sel.seen);
+    meta["video_tiles"] = Value::from(sel.videos);
+    if opt.dry_run {
+        return Ok(()); // 진단: 아무것도 누르지 않았으므로 저장하지 않는다
+    }
     if sel.selected == 0 {
         return fail("서랍에서 사진을 찾지 못했다 (사진이 없거나 화면 구성이 다르다)");
     }

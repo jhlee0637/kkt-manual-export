@@ -124,3 +124,58 @@ def test_same_photo_sent_twice_is_two_attachments_resave_is_alias(tmp_path):
     assert sum(len(a["aliases"]) for a in state.attachments.values()) == 1
     assert len({a["storage_key"] for a in state.attachments.values()}) == 1   # 보관본 파일은 하나
     assert ingest_attachments(arch, src)["saved"] == 0                    # 다시 해도 그대로
+
+
+def _mp4(path, payload: bytes):
+    path.write_bytes(b"\x00\x00\x00\x18ftypmp42" + payload)
+
+
+def test_video_is_archived_and_linked_to_its_message(tmp_path):
+    arch = Archive(tmp_path / "a", "kt_test")
+    arch.ingest(write_export(tmp_path, "e1.txt", "2026-10-02 12:00:00", ["[me] [오전 9:00] 사진", "[me] [오전 9:05] 동영상"]))
+    src = tmp_path / "src"
+    src.mkdir()
+    png(src / "KakaoTalk_20261002_090000000.png", b"p")
+    _mp4(src / "KakaoTalk_20261002_090500000.mp4", b"v")
+    r = ingest_attachments(arch, src)
+    assert r["saved"] == 2 and r["saved_videos"] == 1 and r["linked"] == 2 and r["unmatched_groups"] == []
+    state, _ = arch.load()
+    vid = next(x for x in state.registry.values() if x["content_type"] == "video")
+    att = state.attachments[vid["attachment_id"]]
+    assert att["mime_type"] == "video/mp4" and att["storage_key"].startswith("attachments/video/")
+    assert (arch.dir / att["storage_key"]).read_bytes().endswith(b"v")
+    img = next(x for x in state.registry.values() if x["content_type"] == "image")
+    assert state.attachments[img["attachment_id"]]["storage_key"].startswith("attachments/image/")
+
+
+def test_video_and_photo_in_the_same_minute_are_not_mixed(tmp_path):
+    arch = Archive(tmp_path / "a", "kt_test")
+    arch.ingest(write_export(tmp_path, "e1.txt", "2026-10-02 12:00:00", ["[me] [오전 9:00] 사진", "[me] [오전 9:00] 동영상"]))
+    src = tmp_path / "src"
+    src.mkdir()
+    png(src / "KakaoTalk_20261002_090000100.png", b"p")
+    _mp4(src / "KakaoTalk_20261002_090000200.mp4", b"v")
+    r = ingest_attachments(arch, src)
+    assert r["linked"] == 2 and r["unmatched_groups"] == []
+    # 사진 파일만 있고 동영상 파일이 없으면 동영상 메시지는 사진과 짝지어지지 않는다
+    arch2 = Archive(tmp_path / "b", "kt_test")
+    arch2.ingest(write_export(tmp_path, "e2.txt", "2026-10-02 12:00:00", ["[me] [오전 9:00] 동영상"]))
+    only_photo = tmp_path / "only_photo"
+    only_photo.mkdir()
+    png(only_photo / "KakaoTalk_20261002_090000100.png", b"p")
+    r2 = ingest_attachments(arch2, only_photo)
+    assert r2["saved"] == 1 and r2["linked"] == 0
+    assert r2["unmatched_groups"] == [{"minute": "2026-10-02 09:00", "video_messages": 1, "files": 0}]
+
+
+def test_no_videos_flag_leaves_videos_alone_until_asked(tmp_path):
+    arch = Archive(tmp_path / "a", "kt_test")
+    arch.ingest(write_export(tmp_path, "e1.txt", "2026-10-02 12:00:00", ["[me] [오전 9:05] 동영상"]))
+    src = tmp_path / "src"
+    src.mkdir()
+    _mp4(src / "KakaoTalk_20261002_090500000.mp4", b"v")
+    r = ingest_attachments(arch, src, videos=False)
+    assert r["saved"] == 0 and r["linked"] == 0 and r["videos_excluded"] == 1 and r["unmatched_groups"] == []
+    assert not (arch.dir / "attachments" / "video").exists()
+    r2 = ingest_attachments(arch, src)
+    assert r2["saved"] == 1 and r2["saved_videos"] == 1 and r2["linked"] == 1

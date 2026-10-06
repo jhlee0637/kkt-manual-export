@@ -27,12 +27,16 @@
     "sha256": "fd9c1a07a404635294c71418828c7aac36f71ff62c4b172d0c998a1759b5f656",
     "size": 14
   },
+  "kt_golden/attachments/video/95/95121d7f89e60ddef4d208748edbed39cc02edbb27f01aa86693586329a193d9.mp4": {
+    "sha256": "95121d7f89e60ddef4d208748edbed39cc02edbb27f01aa86693586329a193d9",
+    "size": 19
+  },
   "kt_golden/events.jsonl": {
-    "sha256": "d7e2e2fe195bcb98e7fa250d67a4d91e64c9679d4d6a372012ad28257f8528f2",
-    "size": 12995
+    "sha256": "fb74258dee21dd46ef85acd4b0ddeb9e31948aa86be4f84830b1f05adb2ab2fa",
+    "size": 14422
   },
   "kt_golden/raw/e1.txt": {
-    "sha256": "dcce2b0b955680ca40370de38d430bb3216efd6e70eeb16a40e67d04b4fc9d51",
-    "size": 428
+    "sha256": "b41f45058668ae1a71a23182223f8ec8d3a054e148962dfb15979a39dc299efa",
+    "size": 462
   }
 }

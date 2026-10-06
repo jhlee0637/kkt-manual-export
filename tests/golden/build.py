@@ -380,8 +380,9 @@ def sc_attach_multi(root):
     s.photo("KakaoTalk_20261002_110030000.png", png + b"pair-b")                            # 11:00 에 2장
     s.photo("KakaoTalk_20261002_113000000.png", png + b"pair-a")                            # 11:30 에 같은 사진을 다시 보냄 (내용이 11:00 의 한 장과 같다)
     s.photo("KakaoTalk_20261002_113000000 (1).png", png + b"pair-a")                        # 같은 파일의 재저장본은 별칭
+    s.photo("KakaoTalk_20261002_091005000.mp4", b"\x00\x00\x00\x18ftypmp42" + b"video-A")       # 9:10 동영상 (메시지 1개, 파일 1개)
     s.txt("e1.txt", "2026-10-02 12:00:00", ["[민수] [오전 9:00] 사진 3장", "[지영] [오전 9:00] 사진",
-                                              "[민수] [오전 10:00] 사진 2장", "[민수] [오전 11:00] 사진 2장", "[민수] [오전 11:30] 사진", "[민수] [오전 9:10] 동영상",
+                                              "[민수] [오전 10:00] 사진 2장", "[민수] [오전 11:00] 사진 2장", "[민수] [오전 11:30] 사진", "[민수] [오전 9:10] 동영상", "[지영] [오전 9:20] 동영상",
                                               "[지영] [오전 11:05] 사진 찍었어", "[지영] [오전 11:06] 사진 0장"])
     s.ingest("e1.txt")
     s.cli("--conversation", CONV, "attach", "{dir}/photos")
@@ -390,9 +391,38 @@ def sc_attach_multi(root):
     s.finish()
 
 
+def sc_attach_no_videos(root):
+    s = Scn(root, "attachments_no_videos",
+            "동영상 보관을 끄면(--no-videos) 사진만 보관·연결하고 .mp4 는 보관도 연결도 하지 않는다. 끄지 않고 다시 하면 그때 보관·연결한다")
+    png = b"\x89PNG\r\n\x1a\n"
+    s.photo("KakaoTalk_20261002_090000000.png", png + b"photo-only")
+    s.photo("KakaoTalk_20261002_090500000.mp4", b"\x00\x00\x00\x18ftypmp42" + b"video-only")
+    s.txt("e1.txt", "2026-10-02 12:00:00", ["[민수] [오전 9:00] 사진", "[민수] [오전 9:05] 동영상"])
+    s.ingest("e1.txt")
+    s.cli("--conversation", CONV, "attach", "{dir}/photos", "--no-videos")
+    s.cli("--conversation", CONV, "status")
+    s.cli("--conversation", CONV, "attach", "{dir}/photos")
+    s.cli("--conversation", CONV, "status")
+    s.finish()
+
+
+def sc_attach_saved_first(root):
+    s = Scn(root, "attachments_saved_first",
+            "파일을 먼저 보관하고 나중에 텍스트를 반영해도(보관한 첨부의 종류는 mime 으로 읽는다) 같은 분의 사진은 사진끼리, 동영상은 동영상끼리 연결된다")
+    png = b"\x89PNG\r\n\x1a\n"
+    s.photo("KakaoTalk_20261002_090000000.png", png + b"early-photo")
+    s.photo("KakaoTalk_20261002_090000500.mp4", b"\x00\x00\x00\x18ftypmp42" + b"early-video")   # 같은 분의 동영상
+    s.txt("e1.txt", "2026-10-02 12:00:00", ["[민수] [오전 9:00] 동영상", "[민수] [오전 9:00] 사진"])
+    s.cli("--conversation", CONV, "attach", "{dir}/photos")      # 아직 메시지가 없다: 보관만
+    s.ingest("e1.txt")
+    s.cli("--conversation", CONV, "attach", "{dir}/photos")      # 이제 연결한다
+    s.cli("--conversation", CONV, "status")
+    s.finish()
+
+
 SCENARIOS = [sc_basic, sc_thresholds, sc_dup_tiebreak, sc_tie, sc_delete, sc_missing, sc_edit, sc_realworld, sc_trim, sc_errors, sc_room_rename,
              sc_room_resolution, sc_explicit, sc_member_rename, sc_member_boundary, sc_member_weak, sc_nonretro, sc_format,
-             sc_exotic_separators, sc_attach, sc_attach_multi, sc_crash, sc_schema]
+             sc_exotic_separators, sc_attach, sc_attach_multi, sc_attach_no_videos, sc_attach_saved_first, sc_crash, sc_schema]
 
 
 def build(root: Path) -> list:

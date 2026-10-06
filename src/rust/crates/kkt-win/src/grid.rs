@@ -112,9 +112,37 @@ fn is_selected(img: &Image, cx: i32, cy: i32) -> bool {
     false
 }
 
+/// 영역 안에서 조건에 맞는 픽셀 수.
+fn count_region(img: &Image, x0: i32, y0: i32, w: i32, h: i32, f: impl Fn((u8, u8, u8)) -> bool) -> usize {
+    let mut n = 0;
+    for y in y0..y0 + h {
+        for x in x0..x0 + w {
+            if x >= 0 && y >= 0 && (x as usize) < img.w && (y as usize) < img.h && f(img.rgb(x as usize, y as usize)) {
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
+/// 동영상 타일인가. 동영상은 오른쪽 아래에 어두운 알약과 그 안의 흰 재생 시간(`00:04`)이 있다.
+/// 묶음(`사진 N장`) 타일은 같은 자리에 작은 어두운 정사각형 아이콘(흰 그림 픽셀이 많다)이 있어서 구별된다.
+///
+/// 실측(타일 11개: 동영상 1, 묶음 3, 사진 7)으로 기준을 잡았다.
+/// 알약의 왼쪽(타일 안 x 86..102)은 어둡고 흰 글자 획이 조금 있으며, 오른쪽(x 104..120)도 같다.
+/// 오른쪽의 흰 픽셀은 동영상 18개, 묶음 아이콘 42개 이상이다.
+pub fn is_video_tile(img: &Image, c: &Cell) -> bool {
+    let dark = |p: (u8, u8, u8)| p.0.max(p.1).max(p.2) < 95;
+    let white = |p: (u8, u8, u8)| p.0.min(p.1).min(p.2) >= 200;
+    let (ld, lw) = (count_region(img, c.x + 86, c.y + 100, 16, 16, dark), count_region(img, c.x + 86, c.y + 100, 16, 16, white));
+    let (rd, rw) = (count_region(img, c.x + 104, c.y + 100, 16, 18, dark), count_region(img, c.x + 104, c.y + 100, 16, 18, white));
+    ld >= 90 && (8..=40).contains(&lw) && rd >= 90 && (8..=34).contains(&rw)
+}
+
 /// 이미지에서 완전히 보이는 썸네일 칸을 위→아래, 왼쪽→오른쪽 순서로 찾는다.
 pub fn find_cells(img: &Image) -> Vec<Cell> {
-    let y_end = img.h as i32 - BOTTOM_RESERVED;
+    // 선택 바는 칸을 하나라도 고른 뒤에만 생긴다. 바가 없으면 마지막 줄이 창 아래까지 내려오므로 자리를 비우지 않는다 (실측).
+    let y_end = if selection_bar_visible(img) { img.h as i32 - BOTTOM_RESERVED } else { img.h as i32 - 4 };
     // 내용이 있는 줄의 연속 구간
     let mut runs: Vec<(i32, i32)> = Vec::new();
     let mut start: Option<i32> = None;
@@ -273,7 +301,60 @@ pub(crate) mod tests {
     fn partially_visible_rows_are_ignored() {
         let mut img = blank(840, 600);
         thumb(&mut img, GRID_LEFT, 150, 5); // 위가 잘림 (TOP_MIN 위로 걸침)
-        thumb(&mut img, GRID_LEFT, 470, 9); // 아래 예약 영역(h-62)에 걸침
+        thumb(&mut img, GRID_LEFT, 470, 9); // 선택 바 자리(h-62)에 걸침
+        fill(&mut img, 800 - 6, 570 - 6, 12, 12, (30, 30, 30)); // 선택 바가 보인다
+        fill(&mut img, 760 - 6, 570 - 6, 12, 12, (30, 30, 30));
+        assert!(find_cells(&img).is_empty());
+    }
+
+    /// 동영상 알약: 어두운 바탕에 흰 글자 획 (왼쪽·오른쪽 영역에 각각 24픽셀)
+    fn video_pill(img: &mut Image, x0: i32, y0: i32) {
+        fill(img, x0 + 84, y0 + 101, 34, 14, (20, 20, 20));
+        for sx in [88, 94, 106, 112] {
+            fill(img, x0 + sx, y0 + 103, 2, 6, (250, 250, 250));
+        }
+    }
+
+    /// 묶음 아이콘: 어두운 정사각형 안에 흰 그림이 많다
+    fn bundle_icon(img: &mut Image, x0: i32, y0: i32) {
+        fill(img, x0 + 104, y0 + 102, 16, 16, (20, 20, 20));
+        fill(img, x0 + 106, y0 + 104, 12, 12, (250, 250, 250));
+        fill(img, x0 + 108, y0 + 106, 8, 8, (20, 20, 20));
+    }
+
+    #[test]
+    fn video_tiles_are_told_apart_from_photos_and_bundles() {
+        let mut img = blank(840, 600);
+        thumb(&mut img, GRID_LEFT, 225, 5); // 그냥 사진
+        thumb(&mut img, GRID_LEFT + PITCH, 225, 9);
+        video_pill(&mut img, GRID_LEFT + PITCH, 225); // 동영상
+        thumb(&mut img, GRID_LEFT + 2 * PITCH, 225, 13);
+        bundle_icon(&mut img, GRID_LEFT + 2 * PITCH, 225); // 묶음
+        let cells = find_cells(&img);
+        assert_eq!(cells.len(), 3);
+        let kinds: Vec<bool> = cells.iter().map(|c| is_video_tile(&img, c)).collect();
+        assert_eq!(kinds, [false, true, false]);
+    }
+
+    #[test]
+    fn bright_or_dark_photos_are_not_videos() {
+        let mut img = blank(840, 600);
+        thumb(&mut img, GRID_LEFT, 225, 5);
+        fill(&mut img, GRID_LEFT, 225, CELL, CELL, (250, 250, 250)); // 흰 이미지
+        fill(&mut img, GRID_LEFT + PITCH, 225, CELL, CELL, (15, 15, 15)); // 어두운 사진 (흰 점 없음)
+        let cells = find_cells(&img);
+        assert!(cells.iter().all(|c| !is_video_tile(&img, c)));
+    }
+
+    #[test]
+    fn last_row_is_found_when_there_is_no_selection_bar() {
+        // 선택 바가 없으면 마지막 줄이 창 아래까지 내려온다 (y 440..562 가 바 자리(538)에 걸쳐도 칸이다)
+        let mut img = blank(840, 600);
+        thumb(&mut img, GRID_LEFT, 440, 5);
+        assert_eq!(find_cells(&img).len(), 1);
+        // 바가 있으면 그 자리에 걸친 칸은 쓰지 않는다
+        fill(&mut img, 800 - 6, 570 - 6, 12, 12, (30, 30, 30));
+        fill(&mut img, 760 - 6, 570 - 6, 12, 12, (30, 30, 30));
         assert!(find_cells(&img).is_empty());
     }
 

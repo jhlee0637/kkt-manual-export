@@ -76,7 +76,7 @@ def cmd_participant_link(args) -> int:
 
 def cmd_attach(args) -> int:
     arch = _arch(args)
-    print(json.dumps(ingest_attachments(arch, Path(args.src)), ensure_ascii=False))
+    print(json.dumps(ingest_attachments(arch, Path(args.src), videos=not args.no_videos), ensure_ascii=False))
     return 0
 
 
@@ -96,6 +96,10 @@ def cmd_status(args) -> int:
         "deleted_markers_unmatched": sum(r["kind"] == "deleted_marker" for r in state.registry.values()),
         "attachments": len(state.attachments),
     }
+    videos = [r for r in msgs if r["content_type"] == "video"]
+    if videos:                                  # 동영상 메시지가 있을 때만 나타나는 키 (기존 출력은 그대로)
+        out["video_messages"] = len(videos)
+        out["video_messages_linked"] = sum(1 for r in videos if r["attachment_ids"])
     print(json.dumps(out, ensure_ascii=False, indent=2))
     return 0
 
@@ -113,6 +117,7 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_ingest)
     p = sub.add_parser("attach", help="저장한 사진 폴더를 반영하고 메시지와 연결")
     p.add_argument("src")
+    p.add_argument("--no-videos", action="store_true", help="동영상(.mp4)은 보관하지도 연결하지도 않는다")
     p.set_defaults(fn=cmd_attach)
     p = sub.add_parser("status", help="요약 출력")
     p.set_defaults(fn=cmd_status)

@@ -59,6 +59,7 @@ pub struct Attachment {
     pub sha256: String,
     pub filename: String,
     pub aliases: Vec<String>,
+    pub mime_type: String,
 }
 
 #[derive(Debug, Default)]
@@ -245,7 +246,14 @@ impl State {
                     .unwrap_or_default();
                 self.attachments.insert(
                     id.clone(),
-                    Attachment { attachment_id: id, taken_at: sv(ev, "taken_at")?, sha256: sv(ev, "sha256")?, filename: sv(ev, "filename")?, aliases },
+                    Attachment {
+                        attachment_id: id,
+                        taken_at: sv(ev, "taken_at")?,
+                        sha256: sv(ev, "sha256")?,
+                        filename: sv(ev, "filename")?,
+                        aliases,
+                        mime_type: so(ev, "mime_type").unwrap_or_default(),
+                    },
                 );
             }
             "attachment.linked" => {
