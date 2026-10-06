@@ -80,27 +80,37 @@ fn prompt(text: &str) -> Option<String> {
     }
 }
 
-/// 아직 사진 파일과 연결되지 않은, 지금 보이는 사진 메시지 수와 사진 장수의 합 ('사진 3장' 한 줄은 메시지 1개, 3장).
-/// 서랍의 타일은 메시지 단위라서 타일은 메시지 수만큼 고르고, 저장되는 파일은 장수의 합만큼 생긴다.
-fn unlinked_images(archive: &Path, conv: &str) -> (usize, usize) {
-    match Archive::new(archive, conv).load() {
-        Ok((st, _)) => st
-            .registry
-            .values()
-            .filter(|r| r.kind == "message" && r.content_type == "image" && r.status == "active" && r.attachment_ids.is_empty())
-            .fold((0, 0), |(m, p), r| (m + 1, p + r.image_count as usize)),
-        Err(_) => (0, 0),
-    }
+/// 서랍에서 골라야 할 최신 타일 수와 그때 저장될 파일 수: `(타일, 파일)`.
+///
+/// 서랍은 사진과 동영상을 메시지 하나당 타일 하나로 최신순으로 보여 준다 (`사진 3장` 묶음도 타일 하나).
+/// 아직 사진 파일과 연결되지 않은 가장 오래된 사진 메시지가 나올 때까지의 최신 사진·동영상 메시지가 대상이다.
+/// 동영상도 타일을 차지하므로 함께 센다 (동영상 파일은 저장되지만 아카이브에 보관하지는 않는다).
+/// 파일 수는 사진 메시지의 장수 합 + 동영상 수다.
+fn media_to_fetch(archive: &Path, conv: &str) -> (usize, usize) {
+    let Ok((st, _)) = Archive::new(archive, conv).load() else { return (0, 0) };
+    let mut media: Vec<(&str, &str, usize, &kkt_core::state::Record)> = st
+        .registry
+        .values()
+        .enumerate()
+        .filter(|(_, r)| r.kind == "message" && r.status == "active" && (r.content_type == "image" || r.content_type == "video"))
+        .map(|(i, r)| (r.date.as_str(), r.hhmm.as_deref().unwrap_or(""), i, r))
+        .collect();
+    media.sort_by(|a, b| (a.0, a.1, a.2).cmp(&(b.0, b.1, b.2)));
+    let Some(oldest) = media.iter().position(|m| m.3.content_type == "image" && m.3.attachment_ids.is_empty()) else {
+        return (0, 0);
+    };
+    let files = media[oldest..].iter().map(|m| if m.3.content_type == "image" { m.3.image_count as usize } else { 1 }).sum();
+    (media.len() - oldest, files)
 }
 
 /// 서랍에서 최신 사진을 (연결 안 된 사진 메시지 수만큼) 저장하고 메시지와 연결한다.
 fn save_photos(title: &str, archive: &Path, conv: &str) {
-    let (msgs, n) = unlinked_images(archive, conv);
+    let (msgs, n) = media_to_fetch(archive, conv);
     if msgs == 0 {
         println!("저장할 새 사진이 없습니다.");
         return;
     }
-    println!("\n사진 {n}장(메시지 {msgs}개)이 아직 저장되지 않았습니다. 서랍에서 저장합니다. 마우스와 키보드에서 손을 떼세요. (중단: Ctrl+D)");
+    println!("\n사진·동영상 {n}개(서랍의 {msgs}칸)가 아직 저장되지 않았습니다. 서랍에서 저장합니다. 마우스와 키보드에서 손을 떼세요. (마우스를 움직이면 일시정지, 중단: Ctrl+D)");
     let dir = photos::default_save_dir();
     let opt = photos::Options { newest: Some(msgs), expect_files: Some(n), ..Default::default() };
     match photos::download_photos(title, &dir, &Guard::new(), &opt) {
@@ -133,7 +143,7 @@ fn save_photos(title: &str, archive: &Path, conv: &str) {
 fn collect_and_ingest(title: &str, base: &Path) {
     let exports = base.join("exports");
     let archive = base.join("archive");
-    println!("\n시작합니다. 몇 초 동안 마우스와 키보드에서 손을 떼세요. (중단: Ctrl+D)");
+    println!("\n시작합니다. 마우스와 키보드에서 손을 떼세요. (마우스를 움직이면 일시정지, 중단: Ctrl+D)");
     std::thread::sleep(std::time::Duration::from_secs(2));
     let meta = match collect::export_chat(title, &exports, &Guard::new(), &collect::Options::default()) {
         Ok(m) => m,

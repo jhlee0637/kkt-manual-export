@@ -169,16 +169,18 @@ pub fn download_icon(img: &Image) -> (i32, i32) {
     (img.w as i32 - 40, img.h as i32 - 30)
 }
 
-/// 선택 바가 보이는가: 다운로드·전달 아이콘 자리에 어두운 점이 있다 (레이아웃이 달라졌는지 확인하는 안전장치).
+/// 선택 바가 보이는가: 다운로드 아이콘 자리는 짙고, 그 왼쪽(전달) 아이콘 자리에도 아이콘이 있다
+/// (레이아웃이 달라졌는지 확인하는 안전장치). 영상이 선택에 섞이면 전달 아이콘이 회색으로 비활성이 되므로(실측)
+/// 전달 아이콘은 짙지 않아도 "무언가 그려져 있음"만 본다.
 pub fn selection_bar_visible(img: &Image) -> bool {
-    let dark = |cx: i32, cy: i32| -> usize {
+    let count = |cx: i32, cy: i32, limit: u8| -> usize {
         let mut n = 0;
         for dy in -10..=10 {
             for dx in -10..=10 {
                 let (x, y) = (cx + dx, cy + dy);
                 if x >= 0 && y >= 0 && (x as usize) < img.w && (y as usize) < img.h {
                     let (r, g, b) = img.rgb(x as usize, y as usize);
-                    if r < 110 && g < 110 && b < 110 {
+                    if r < limit && g < limit && b < limit {
                         n += 1;
                     }
                 }
@@ -187,7 +189,7 @@ pub fn selection_bar_visible(img: &Image) -> bool {
         n
     };
     let (dx, dy) = download_icon(img);
-    dark(dx, dy) >= 8 && dark(dx - 40, dy) >= 8
+    count(dx, dy, 110) >= 8 && count(dx - 40, dy, 215) >= 8
 }
 
 #[cfg(test)]
@@ -296,6 +298,15 @@ pub(crate) mod tests {
         assert!(!selection_bar_visible(&img), "다운로드 아이콘만 있으면 레이아웃이 다른 것으로 본다");
         fill(&mut img, 760 - 6, 570 - 6, 12, 12, (30, 30, 30));
         assert!(selection_bar_visible(&img));
+        // 영상이 섞이면 전달 아이콘이 회색이 된다 (실측)
+        let mut gray = blank(840, 600);
+        fill(&mut gray, 800 - 6, 570 - 6, 12, 12, (30, 30, 30));
+        fill(&mut gray, 760 - 6, 570 - 6, 12, 12, (190, 190, 190));
+        assert!(selection_bar_visible(&gray));
+        // 아무것도 없는 흰 자리는 아니다
+        let mut blank_share = blank(840, 600);
+        fill(&mut blank_share, 800 - 6, 570 - 6, 12, 12, (30, 30, 30));
+        assert!(!selection_bar_visible(&blank_share));
         assert_eq!(download_icon(&img), (800, 570));
     }
 }

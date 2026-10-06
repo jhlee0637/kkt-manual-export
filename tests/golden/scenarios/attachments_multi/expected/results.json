@@ -15,7 +15,7 @@
         "conversation": "kt_golden",
         "events": {
           "conversation.title_observed": 1,
-          "message.observed": 7,
+          "message.observed": 8,
           "participant.observed": 2
         },
         "export": "e1.txt",
@@ -101,7 +101,7 @@
         "image_messages_linked": 4,
         "last_export_saved_at": "2026-10-02T12:00:00+09:00",
         "messages_by_status": {
-          "active": 7
+          "active": 8
         },
         "participants": 2,
         "title": "회의방"

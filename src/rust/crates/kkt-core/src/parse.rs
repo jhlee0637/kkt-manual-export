@@ -145,6 +145,8 @@ fn close(cur: &mut Option<Entry>, entries: &mut Vec<Entry>) {
                 e.image_count = n;
             } else if e.text == "이모티콘" {
                 e.content_type = "emoticon".to_string();
+            } else if e.text == "동영상" {
+                e.content_type = "video".to_string(); // 실측: 동영상은 '동영상' 한 줄이다
             }
         }
         entries.push(e);

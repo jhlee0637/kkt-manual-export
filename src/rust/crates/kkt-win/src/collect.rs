@@ -66,7 +66,10 @@ pub fn export_chat(title: &str, out_dir: &Path, guard: &Guard, opt: &Options) ->
     let info = window::normalize(title, opt.width, opt.height, None)?;
     let mut meta = json!({"title": title, "warnings": [], "window": info.summary()});
     let mut dialog: Option<Hwnd> = None;
+    // 이 작업은 키보드만 쓴다. 사용자가 마우스를 움직이면 멈췄다가 마우스가 멈추면 그대로 이어간다.
+    guard.track_current();
     let res = run(title, out_dir, guard, opt, &info, &mut meta, &mut dialog);
+    guard.clear_expected();
     if let Some(d) = dialog {
         if sys::is_window(d) {
             sys::close_window(d); // 중단/오류 시 대화상자를 남기지 않는다
@@ -75,6 +78,7 @@ pub fn export_chat(title: &str, out_dir: &Path, guard: &Guard, opt: &Options) ->
     let restore = window::restore(title, &info);
     res?;
     meta["window"]["restore"] = restore;
+    meta["pauses"] = Value::from(guard.pause_count()); // 사용자가 마우스를 움직여 일시정지한 횟수
     Ok(meta)
 }
 

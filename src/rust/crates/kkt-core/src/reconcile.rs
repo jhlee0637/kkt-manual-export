@@ -37,6 +37,7 @@ fn content(e: &Entry) -> Value {
     match e.content_type.as_str() {
         "image" => Value::Array((0..e.image_count).map(|_| json!({"type": "image", "attachment_id": null})).collect()),
         "emoticon" => json!([{"type": "emoticon"}]),
+        "video" => json!([{"type": "video"}]),
         _ => json!([{"type": "text", "text": e.text}]),
     }
 }

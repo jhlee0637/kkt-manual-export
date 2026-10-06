@@ -49,6 +49,8 @@ _IMAGE_RE = re.compile(r"^사진(?: ([0-9]+)장)?$")
 # 이모티콘도 '이모티콘' 한 줄로만 나온다 (어떤 이모티콘인지는 알 수 없다).
 # 사용자가 글자 그대로 '이모티콘'이라고 보낸 메시지와는 TXT만으로 구분할 수 없다.
 _EMOTICON_RE = re.compile(r"^이모티콘$")
+# 동영상은 '동영상' 한 줄이다 (실측). 글자 그대로 '동영상'이라고 보낸 메시지와는 TXT만으로 구분할 수 없다.
+_VIDEO_RE = re.compile(r"^동영상$")
 
 
 @dataclass
@@ -61,7 +63,7 @@ class Entry:
     hhmm: Optional[str] = None      # HH:MM (24시간). deleted_marker/system은 None
     sender: Optional[str] = None
     text: str = ""
-    content_type: str = "text"      # text | image
+    content_type: str = "text"      # text | image | emoticon | video
     image_count: int = 1            # content_type 이 image 일 때 사진 수 ('사진 16장' 이면 16)
     raw_lines: list = field(default_factory=list)
 
@@ -115,6 +117,8 @@ def parse_export(text: str) -> ParsedExport:
                 cur.image_count = int(m_img.group(1)) if m_img.group(1) else 1
             elif cur.kind == "message" and _EMOTICON_RE.match(cur.text):
                 cur.content_type = "emoticon"
+            elif cur.kind == "message" and _VIDEO_RE.match(cur.text):
+                cur.content_type = "video"
             entries.append(cur)
             cur = None
 

@@ -150,6 +150,11 @@ attachments/image/<sha256 앞 2자>/<sha256>.<ext>
   - 새 참가자로 기록되고, `participant-link --keep 옛이름 --merge 새이름` 으로 사람이 연결한다 (`participant.linked`, `basis: manual`).
 - 같은 이름의 서로 다른 사람은 TXT 로 구분할 수 없다.
 
+## 동영상
+- TXT에 `동영상` 한 줄로 나온다 (`content_type: video`). 길이나 파일은 알 수 없다.
+- 글자 그대로 `동영상`이라고 보낸 메시지와는 TXT만으로 구분할 수 없다.
+- 동영상 파일의 보관과 메시지 연결은 아직 구현하지 않았다 (사진만 한다).
+
 ## 이모티콘
 - TXT에 `이모티콘` 한 줄로 나온다 (`content_type: emoticon`).
 - 어떤 이모티콘인지는 알 수 없다.

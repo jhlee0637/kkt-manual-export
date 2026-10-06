@@ -69,6 +69,12 @@ def test_multi_photo_line_has_count():
     assert [(e.content_type, e.image_count) for e in p.entries] == [("image", 16), ("image", 2), ("image", 1), ("image", 1)]
 
 
+def test_video_line():
+    """실측: 동영상은 '동영상' 한 줄이다."""
+    p = parse_export(make_export("2026-10-06 08:52:46", ["[.] [오전 8:50] 동영상", "[.] [오전 8:50] 동영상 봐", "[.] [오전 8:50] Test"]))
+    assert [e.content_type for e in p.entries] == ["video", "text", "text"]
+
+
 def test_photo_like_text_is_not_image():
     p = parse_export(make_export("2026-10-06 08:11:32", [
         "[.] [오전 8:07] 사진 0장", "[.] [오전 8:07] 사진 2장 찍었어", "[.] [오전 8:07] 사진 장", "[.] [오전 8:07] 사진  2장"]))

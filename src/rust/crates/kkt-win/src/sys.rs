@@ -143,7 +143,14 @@ mod imp {
         fn ReleaseDC(h: Hwnd, dc: isize) -> i32;
         fn PrintWindow(h: Hwnd, dc: isize, flags: u32) -> i32;
         fn SetCursorPos(x: i32, y: i32) -> i32;
+        fn GetCursorPos(p: *mut Point) -> i32;
         fn mouse_event(flags: u32, dx: u32, dy: u32, data: u32, extra: usize);
+    }
+
+    #[repr(C)]
+    struct Point {
+        x: i32,
+        y: i32,
     }
 
     #[repr(C)]
@@ -388,6 +395,13 @@ mod imp {
         unsafe { SetCursorPos(x, y) };
     }
 
+    /// 지금 마우스 커서의 화면 좌표.
+    pub fn cursor_pos() -> (i32, i32) {
+        let mut p = Point { x: 0, y: 0 };
+        unsafe { GetCursorPos(&mut p) };
+        (p.x, p.y)
+    }
+
     pub fn mouse_click() {
         unsafe {
             mouse_event(0x0002, 0, 0, 0, 0); // LEFTDOWN
@@ -463,6 +477,7 @@ mod stub {
     pub fn work_area(_: Hwnd) -> Option<RawRect> { None }
     pub fn capture_window(_: Hwnd) -> Option<Image> { None }
     pub fn cursor_to(_: i32, _: i32) {}
+    pub fn cursor_pos() -> (i32, i32) { (0, 0) }
     pub fn mouse_click() {}
     pub fn wheel(_: i32) {}
     pub fn is_iconic(_: Hwnd) -> bool { false }

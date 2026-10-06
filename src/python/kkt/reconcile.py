@@ -35,6 +35,8 @@ def _content(e: Entry) -> list:
         return [{"type": "image", "attachment_id": None} for _ in range(e.image_count)]
     if e.content_type == "emoticon":
         return [{"type": "emoticon"}]
+    if e.content_type == "video":
+        return [{"type": "video"}]
     return [{"type": "text", "text": e.text}]
 
 
