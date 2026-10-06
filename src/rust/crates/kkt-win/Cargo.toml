@@ -1,6 +1,6 @@
 [package]
 name = "kkt-win"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 
 # 카카오톡 창을 조작하는 수집 계층 (src/python/kkt/win 의 이식).
