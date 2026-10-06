@@ -17,6 +17,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+mod ingest_flow;
 mod settings;
 mod wizard;
 
@@ -238,12 +239,6 @@ fn cmd_ingest(cli: &Cli, files: &[String], force: bool, accept: &[String]) -> Re
         print_line(&ingest_parsed(&cli.archive, cli.conversation.as_deref(), p, parsed, force, &accept)?);
     }
     Ok(())
-}
-
-/// 파일 하나를 읽어 방을 판정하고 반영한다. 결과 JSON 에 `conversation`, `link` 를 붙여 돌려준다.
-pub(crate) fn ingest_path(archive: &Path, conversation: Option<&str>, p: &Path, force: bool, accept: &IndexMap<String, String>) -> Result<Value> {
-    let parsed = parse_export(&decode_export(&fs::read(p)?)?);
-    ingest_parsed(archive, conversation, p, &parsed, force, accept)
 }
 
 fn ingest_parsed(archive: &Path, conversation: Option<&str>, p: &Path, parsed: &ParsedExport, force: bool, accept: &IndexMap<String, String>) -> Result<Value> {

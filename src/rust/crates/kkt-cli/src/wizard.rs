@@ -3,6 +3,7 @@
 //! 설정(저장 폴더, 카카오톡 사진 저장 폴더, 동영상 보관)은 설정 파일에 기억하며, 파일 위치는 화면 맨 위에 보여 준다.
 //! 저장 폴더 아래 `archive/` 에 정리 결과, `exports/` 에 내보내기 TXT 를 둔다.
 
+use crate::ingest_flow::{ingest_interactive, Asker, Flow};
 use crate::settings::{self, LoadStatus, Settings};
 use kkt_core::archive::Archive;
 use kkt_core::attach::ingest_attachments;
@@ -15,9 +16,63 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Outcome {
     Done,
+    /// 사용자가 반영하지 않기로 했다.
+    Skipped,
     /// 사용자가 Ctrl+D 로 중단했다. 남은 방은 건너뛴다.
     Aborted,
     Failed,
+}
+
+/// 콘솔에서 번호로 묻는다. 입력이 없거나 Enter 면 `default`(항상 가장 안전한 선택).
+struct ConsoleAsker;
+
+impl Asker for ConsoleAsker {
+    fn choose(&mut self, question: &str, options: &[String], default: usize) -> usize {
+        println!("\n? {question}");
+        for (i, o) in options.iter().enumerate() {
+            println!("  {}) {o}", i + 1);
+        }
+        loop {
+            let Some(line) = prompt(&format!("번호를 입력하세요 (Enter = {}번): ", default + 1)) else {
+                println!();
+                return default;
+            };
+            let t = line.trim();
+            if t.is_empty() {
+                return default;
+            }
+            match parse_choice(t, options.len()) {
+                Some(i) => return i,
+                None => println!("1 ~ {} 사이의 번호를 입력하세요.", options.len()),
+            }
+        }
+    }
+}
+
+/// 내보내기 하나를 반영한다 (필요하면 묻는다). 반영했으면 방 ID 를 돌려준다.
+fn ingest_and_summarize(path: &Path, settings: &Settings) -> (Outcome, Option<String>) {
+    let archive = archive_dir(settings);
+    match ingest_interactive(&archive, path, &mut ConsoleAsker) {
+        Flow::Done(r) => {
+            let conv = r.get("conversation").and_then(Value::as_str).map(str::to_string);
+            if let Some(c) = &conv {
+                println!("정리 위치: {}", archive.join(c).display());
+            }
+            for l in summarize(&r) {
+                println!("{l}");
+            }
+            (Outcome::Done, conv)
+        }
+        Flow::Skipped => {
+            println!("반영하지 않았습니다. 내보낸 파일은 그대로 남아 있습니다: {}", path.display());
+            (Outcome::Skipped, None)
+        }
+        Flow::Failed(e) => {
+            println!("정리하지 못했습니다 [{}]: {}", e.code, e.message);
+            println!("내보낸 파일은 그대로 남아 있습니다. 문제가 계속되면 위 메시지를 알려 주세요.");
+            (Outcome::Failed, None)
+        }
+    }
 }
 
 fn archive_dir(s: &Settings) -> PathBuf {
@@ -186,7 +241,6 @@ fn save_photos(title: &str, settings: &Settings, conv: &str) {
 }
 
 fn collect_and_ingest(title: &str, settings: &Settings) -> Outcome {
-    let archive = archive_dir(settings);
     println!("\n시작합니다. 마우스와 키보드에서 손을 떼세요. (마우스를 움직이면 일시정지, 중단: Ctrl+D)");
     std::thread::sleep(std::time::Duration::from_secs(2));
     let meta = match collect::export_chat(title, &exports_dir(settings), &Guard::new(), &collect::Options::default()) {
@@ -205,26 +259,11 @@ fn collect_and_ingest(title: &str, settings: &Settings) -> Outcome {
     for w in meta["warnings"].as_array().into_iter().flatten() {
         println!("주의: {}", w.as_str().unwrap_or_default());
     }
-    match crate::ingest_path(&archive, None, &path, false, &indexmap::IndexMap::new()) {
-        Ok(r) => {
-            let conv = r.get("conversation").and_then(Value::as_str).map(str::to_string);
-            if let Some(c) = &conv {
-                println!("정리 위치: {}", archive.join(c).display());
-            }
-            for l in summarize(&r) {
-                println!("{l}");
-            }
-            if let Some(c) = conv {
-                save_photos(title, settings, &c);
-            }
-            Outcome::Done
-        }
-        Err(e) => {
-            println!("정리하지 못했습니다 [{}]: {}", e.code, e.message);
-            println!("내보낸 파일은 그대로 남아 있습니다. 문제가 계속되면 위 메시지를 알려 주세요.");
-            Outcome::Failed
-        }
+    let (outcome, conv) = ingest_and_summarize(&path, settings);
+    if let Some(c) = conv {
+        save_photos(title, settings, &c);
     }
+    outcome
 }
 
 /// 끌어다 놓거나 붙여 넣은 경로를 정리한다 (앞뒤 따옴표, 공백 앞의 역슬래시, 줄 끝 공백).
@@ -268,19 +307,8 @@ fn search_dirs() -> Vec<PathBuf> {
 }
 
 fn ingest_and_report(path: &Path, settings: &Settings) {
-    let archive = archive_dir(settings);
     println!("\n반영합니다: {}", path.display());
-    match crate::ingest_path(&archive, None, path, false, &indexmap::IndexMap::new()) {
-        Ok(r) => {
-            if let Some(c) = r.get("conversation").and_then(Value::as_str) {
-                println!("정리 위치: {}", archive.join(c).display());
-            }
-            for l in summarize(&r) {
-                println!("{l}");
-            }
-        }
-        Err(e) => println!("정리하지 못했습니다 [{}]: {}", e.code, e.message),
-    }
+    let _ = ingest_and_summarize(path, settings);
 }
 
 /// 화면 맨 위에 보여 줄 줄들. 설정 파일 위치를 첫머리에 둔다.
@@ -451,23 +479,27 @@ fn rooms_menu(s: &mut Settings, cfg_path: &Path) -> bool {
 
 /// 고른 방들을 차례로 처리한다. Ctrl+D 로 중단하면 남은 방은 건너뛴다.
 fn collect_rooms(titles: &[String], picked: &[usize], s: &Settings) {
-    let (mut done, mut failed, mut skipped) = (0, 0, 0);
+    let (mut done, mut failed, mut declined, mut remaining) = (0, 0, 0, 0);
     for (k, &i) in picked.iter().enumerate() {
         if picked.len() > 1 {
             println!("\n===== [{}/{}] {} =====", k + 1, picked.len(), titles[i]);
         }
         match collect_and_ingest(&titles[i], s) {
             Outcome::Done => done += 1,
+            Outcome::Skipped => declined += 1,
             Outcome::Failed => failed += 1,
             Outcome::Aborted => {
-                skipped = picked.len() - k - 1;
+                remaining = picked.len() - k - 1;
                 failed += 1;
                 break;
             }
         }
     }
     if picked.len() > 1 {
-        println!("\n전체 결과: 완료 {done}개, 실패·중단 {failed}개{}", if skipped > 0 { format!(", 건너뜀 {skipped}개") } else { String::new() });
+        println!(
+            "\n전체 결과: 완료 {done}개, 반영하지 않음 {declined}개, 실패·중단 {failed}개{}",
+            if remaining > 0 { format!(", 건너뜀 {remaining}개 (Ctrl+D 로 중단)") } else { String::new() }
+        );
     }
     println!();
 }
