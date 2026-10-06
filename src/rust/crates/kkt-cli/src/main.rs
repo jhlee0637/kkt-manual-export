@@ -17,6 +17,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+mod guide;
 mod ingest_flow;
 mod media_plan;
 mod screen;

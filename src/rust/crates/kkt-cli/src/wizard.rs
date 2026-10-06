@@ -3,6 +3,7 @@
 //! 설정(저장 폴더, 카카오톡 사진 저장 폴더, 동영상 보관)은 설정 파일에 기억하며, 파일 위치는 화면 맨 위에 보여 준다.
 //! 저장 폴더 아래 `archive/` 에 정리 결과, `exports/` 에 내보내기 TXT 를 둔다.
 
+use crate::guide;
 use crate::ingest_flow::{ingest_interactive, Asker, Flow};
 use crate::media_plan::{self, MediaRec};
 use crate::screen::{self, Row};
@@ -62,6 +63,18 @@ fn ingest_and_summarize(path: &Path, settings: &Settings) -> (Outcome, Option<St
             }
             for l in summarize(&r) {
                 println!("{l}");
+            }
+            // 결과 폴더의 안내 파일: 없으면 만들고, README 의 채팅방 목록만 새로 쓴다
+            match guide::ensure(&settings.result_dir, &archive) {
+                Ok(rep) => {
+                    if !rep.created.is_empty() {
+                        println!("안내 파일을 만들었습니다: {}", rep.created.join(", "));
+                    }
+                    if rep.rooms_markers_missing {
+                        println!("주의: README.md 에 채팅방 목록 표시(<!-- rooms:begin -->)가 없어 목록을 쓰지 않았습니다.");
+                    }
+                }
+                Err(e) => println!("주의: 안내 파일을 쓰지 못했습니다: {e}"),
             }
             (Outcome::Done, conv)
         }
@@ -460,6 +473,7 @@ fn settings_menu(s: &mut Settings, cfg_path: &Path) {
         println!("  2) 다운로드 폴더: {}", s.download_dir.display());
         println!("     (카카오톡 설정의 '사진 저장 위치'와 같아야 다운로드한 파일을 확인할 수 있습니다. 이 프로그램은 그 폴더를 바꾸지 않고 지켜보기만 합니다)");
         println!("  3) 동영상 보관: {}  (누를 때마다 바뀝니다)", videos_choices(s.videos));
+        println!("  g) 안내 파일(README.md, AGENTS.md) 다시 만들기");
         println!("  r) 기본값으로 되돌리기");
         let Some(line) = prompt("번호를 입력하세요 (Enter = 돌아가기): ") else { return };
         match line.trim().to_lowercase().as_str() {
@@ -487,11 +501,24 @@ fn settings_menu(s: &mut Settings, cfg_path: &Path) {
                 s.videos = s.videos.next();
                 save_settings(s, cfg_path);
             }
+            "g" => {
+                let q = format!(
+                    "결과 폴더의 README.md 와 AGENTS.md 를 새 안내문으로 다시 만듭니다.\n  직접 고친 내용은 사라집니다.\n  ({})",
+                    s.result_dir.display()
+                );
+                let opts = vec!["취소 (그대로 둠)".to_string(), "다시 만들기".to_string()];
+                if ConsoleAsker.choose(&q, &opts, 0) == 1 {
+                    match guide::recreate(&s.result_dir, &archive_dir(s)) {
+                        Ok(()) => println!("다시 만들었습니다: README.md, AGENTS.md"),
+                        Err(e) => println!("다시 만들지 못했습니다: {e}"),
+                    }
+                }
+            }
             "r" => {
                 *s = Settings::default();
                 save_settings(s, cfg_path);
             }
-            _ => println!("1, 2, 3, r 중에서 고르세요."),
+            _ => println!("1, 2, 3, g, r 중에서 고르세요."),
         }
     }
 }

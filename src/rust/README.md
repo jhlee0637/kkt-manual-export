@@ -52,6 +52,10 @@ src/rust/
   (Windows `%APPDATA%\kkt-manual-export\`, macOS `~/Library/Application Support/kkt-manual-export/`, 그 밖 `~/.config/kkt-manual-export/`. `KKT_CONFIG` 로 지정 가능).
   항목: `result_dir`, `download_dir`, `videos`(`ask`/`keep`/`skip`). 옛 `config.json`(0.3.0, `output_dir`·`kakao_photo_dir`)은 읽어서 옮기고 지우지 않는다.
   잘못된 값·줄은 이유를 화면에 알리고 기본값으로 동작한다.
+- **안내 파일**: 결과 폴더에 `README.md`(파일 설명, 채팅방 목록, 백업 안내)와 `AGENTS.md`(AI 에이전트가 이 폴더를 읽을 때의 규칙)를 만든다.
+  원본은 `src/rust/crates/kkt-cli/templates/` 에 있고 실행 파일에 들어 있다. 정리를 마칠 때마다 없으면 만들고, `README.md` 의
+  `<!-- rooms:begin -->` ~ `<!-- rooms:end -->` 사이(채팅방 이름·폴더·메시지 수·마지막 정리)만 새로 쓴다. 그 밖에 직접 쓴 글과 `AGENTS.md` 는 건드리지 않는다.
+  표시를 지우면 목록을 쓰지 않는다. 전체를 새 안내문으로 바꾸는 것은 설정의 `g`(안내 파일 다시 만들기, 확인 질문 있음)뿐이다.
 - **사용자에게 묻기**: 반영 전에 임시 복사본에서 미리 돌려 보고 필요하면 묻는다. 입력이 없으면 가장 안전한 쪽(정리하지 않기, 보류, 동영상 보관 안 함)이다.
   - 이 PC 의 기록이 크게 줄었을 때(`mass_loss`, 예: QR 1회용 로그인): 정리하지 않기(권장) / 그래도 정리하기
   - 방이 모호할 때: 기존 방에 이어 붙이기 / 새 방으로 따로 저장 / 정리하지 않기
