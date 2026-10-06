@@ -5,6 +5,7 @@
 
 use crate::ingest_flow::{ingest_interactive, Asker, Flow};
 use crate::media_plan::{self, MediaRec};
+use crate::screen::{self, Row};
 use crate::settings::{self, LoadStatus, Settings};
 use kkt_core::archive::Archive;
 use kkt_core::attach::ingest_attachments;
@@ -57,7 +58,7 @@ fn ingest_and_summarize(path: &Path, settings: &Settings) -> (Outcome, Option<St
         Flow::Done(r) => {
             let conv = r.get("conversation").and_then(Value::as_str).map(str::to_string);
             if let Some(c) = &conv {
-                println!("정리 위치: {}", archive.join(c).display());
+                println!("대화를 정리했습니다: {}", archive.join(c).display());
             }
             for l in summarize(&r) {
                 println!("{l}");
@@ -65,7 +66,7 @@ fn ingest_and_summarize(path: &Path, settings: &Settings) -> (Outcome, Option<St
             (Outcome::Done, conv)
         }
         Flow::Skipped => {
-            println!("반영하지 않았습니다. 내보낸 파일은 그대로 남아 있습니다: {}", path.display());
+            println!("정리하지 않았습니다. 내보낸 파일은 그대로 남아 있습니다: {}", path.display());
             (Outcome::Skipped, None)
         }
         Flow::Failed(e) => {
@@ -77,11 +78,11 @@ fn ingest_and_summarize(path: &Path, settings: &Settings) -> (Outcome, Option<St
 }
 
 fn archive_dir(s: &Settings) -> PathBuf {
-    s.output_dir.join("archive")
+    s.result_dir.join("archive")
 }
 
 fn exports_dir(s: &Settings) -> PathBuf {
-    s.output_dir.join("exports")
+    s.result_dir.join("exports")
 }
 
 /// 입력한 번호들을 목록 위치(0부터)로 바꾼다. `1,3` `1-3` `1 3` `a`(전체) 를 받는다. 중복은 처음 것만 남긴다.
@@ -131,7 +132,7 @@ fn count(events: &Value, key: &str) -> u64 {
 pub fn summarize(result: &Value) -> Vec<String> {
     let mut out = Vec::new();
     if result.get("skipped").is_some() {
-        out.push("이미 반영된 내보내기입니다. 달라진 것이 없습니다.".to_string());
+        out.push("이미 정리한 내보내기입니다. 달라진 것이 없습니다.".to_string());
         return out;
     }
     out.push(
@@ -211,21 +212,21 @@ fn save_photos(title: &str, settings: &mut Settings, cfg_path: &Path, conv: &str
         save_settings(settings, cfg_path);
     }
     let Some(plan) = plan else {
-        println!("저장할 새 사진이 없습니다.");
+        println!("다운로드할 새 사진·동영상이 없습니다.");
         return;
     };
     println!(
-        "\n사진{} {}개(서랍의 {}칸)가 아직 저장되지 않았습니다. 서랍에서 저장합니다. 마우스와 키보드에서 손을 떼세요. (마우스를 움직이면 일시정지, 중단: Ctrl+D)",
+        "\n사진{} {}개(서랍 {}칸)를 다운로드합니다. 마우스와 키보드에서 손을 떼세요. (마우스를 움직이면 일시정지, 중단: Ctrl+D)",
         if plan.keep_videos { "·동영상" } else { "" },
         plan.files,
         plan.tiles
     );
-    let dir = settings.kakao_photo_dir.clone();
+    let dir = settings.download_dir.clone();
     let opt = photos::Options { newest: Some(plan.tiles), expect_files: Some(plan.files), skip_videos: !plan.keep_videos, ..Default::default() };
     match photos::download_photos(title, &dir, &Guard::new(), &opt) {
         Ok(meta) => {
             let saved = meta["saved_files"].as_array().map_or(0, |a| a.len());
-            println!("파일 {saved}개를 저장했습니다: {}", dir.display());
+            println!("다운로드했습니다: {saved}개 → {}", dir.display());
             for w in meta["warnings"].as_array().into_iter().flatten() {
                 println!("주의: {}", w.as_str().unwrap_or_default());
             }
@@ -233,7 +234,7 @@ fn save_photos(title: &str, settings: &mut Settings, cfg_path: &Path, conv: &str
                 Ok(r) => {
                     let vids = r["saved_videos"].as_u64().unwrap_or(0);
                     println!(
-                        "보관하고 메시지와 연결했습니다: 새로 보관 {}개{}, 연결 {}개",
+                        "보관했습니다: 새로 {}개{}, 메시지에 연결 {}개",
                         r["saved"],
                         if vids > 0 { format!(" (동영상 {vids}개 포함)") } else { String::new() },
                         r["linked"]
@@ -250,8 +251,8 @@ fn save_photos(title: &str, settings: &mut Settings, cfg_path: &Path, conv: &str
                 Err(e) => println!("연결하지 못했습니다 [{}]: {}", e.code, e.message),
             }
         }
-        Err(WinError::Aborted) => println!("\nCtrl+D 로 중단했습니다. 사진은 반영하지 않았습니다."),
-        Err(e) => println!("\n사진을 저장하지 못했습니다: {e}"),
+        Err(WinError::Aborted) => println!("\nCtrl+D 로 중단했습니다. 다운로드한 파일은 보관하지 않았습니다."),
+        Err(e) => println!("\n다운로드하지 못했습니다: {e}"),
     }
 }
 
@@ -270,7 +271,7 @@ fn collect_and_ingest(title: &str, settings: &mut Settings, cfg_path: &Path) -> 
         }
     };
     let path = PathBuf::from(meta["path"].as_str().unwrap_or_default());
-    println!("\n내보내기를 저장했습니다: {}", path.display());
+    println!("\n내보내기를 수집했습니다: {}", path.display());
     for w in meta["warnings"].as_array().into_iter().flatten() {
         println!("주의: {}", w.as_str().unwrap_or_default());
     }
@@ -322,24 +323,102 @@ fn search_dirs() -> Vec<PathBuf> {
 }
 
 fn ingest_and_report(path: &Path, settings: &Settings) {
-    println!("\n반영합니다: {}", path.display());
+    println!("\n정리합니다: {}", path.display());
     let _ = ingest_and_summarize(path, settings);
 }
 
-/// 화면 맨 위에 보여 줄 줄들. 설정 파일 위치를 첫머리에 둔다.
-pub fn header_lines(cfg_path: &Path, s: &Settings, status: &LoadStatus) -> Vec<String> {
-    let mut v = vec!["== 카카오톡 대화 수집 ==".to_string(), format!("설정 파일: {}", cfg_path.display())];
+/// 사용자가 입력한 한 줄의 뜻. 방 번호와 명령은 한 번에 하나만 쓸 수 있다.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Command {
+    Rooms(Vec<usize>),
+    OpenFolder,
+    Settings,
+    Quit,
+    /// 아무것도 입력하지 않았다 (목록을 다시 불러온다)
+    Empty,
+    /// 알 수 없거나 섞어 쓴 입력. 안내 문구를 담는다.
+    Invalid(String),
+}
+
+fn mixed_input_message(t: &str) -> String {
+    format!("방 번호와 명령은 함께 쓸 수 없습니다. 하나만 입력하세요. (입력: {t})")
+}
+
+/// 입력 한 줄을 해석한다. `n_rooms` 는 방 번호의 범위.
+pub fn parse_command(line: &str, n_rooms: usize) -> Command {
+    let t = line.trim();
+    if t.is_empty() {
+        return Command::Empty;
+    }
+    match t.to_lowercase().as_str() {
+        "o" => return Command::OpenFolder,
+        "s" => return Command::Settings,
+        "q" => return Command::Quit,
+        _ => {}
+    }
+    // `1s`, `s1`, `2q`, `1 o` 처럼 번호와 명령을 섞은 입력
+    let lower = t.to_lowercase();
+    if lower.chars().any(|c| c.is_ascii_digit()) && lower.chars().any(|c| matches!(c, 'o' | 's' | 'q')) {
+        return Command::Invalid(mixed_input_message(t));
+    }
+    match parse_selection(t, n_rooms) {
+        Ok(v) => Command::Rooms(v),
+        Err(msg) => Command::Invalid(msg),
+    }
+}
+
+const COL: usize = 4; // 항목 이름과 값 사이의 공백
+
+/// 항목 이름을 칸 수 기준으로 `width` 에 맞춰 오른쪽을 채운다.
+fn label(name: &str, width: usize) -> String {
+    format!("{name}{}", " ".repeat(width.saturating_sub(screen::display_width(name))))
+}
+
+/// 시작 화면 상자 안의 줄들. 경로는 줄마다 완전한 한 줄이라 그대로 복사해서 쓸 수 있다.
+pub fn header_rows(cfg_path: &Path, s: &Settings, status: &LoadStatus, notes: &[String]) -> Vec<Row> {
+    let mut v = vec![Row::Blank];
+    let mut info: Vec<String> = Vec::new();
     match status {
-        LoadStatus::Created => v.push("  (처음 실행이라 기본 설정으로 새로 만들었습니다)".to_string()),
-        LoadStatus::Invalid(why) => {
-            v.push(format!("  주의: 설정 파일을 읽지 못해 이번에는 기본값을 씁니다 ({why}). 파일은 덮어쓰지 않았습니다."));
-        }
+        LoadStatus::Created => info.push("처음 실행이라 기본 설정 파일을 새로 만들었습니다.".to_string()),
+        LoadStatus::Migrated(old) => info.push(format!("이전 설정({})을 읽어 새 형식으로 옮겼습니다. 옛 파일은 그대로 둡니다.", old.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default())),
+        LoadStatus::Invalid(why) => info.push(format!("주의: 설정 파일을 읽지 못해 이번에는 기본값을 씁니다 ({why}). 파일은 덮어쓰지 않았습니다.")),
         LoadStatus::Loaded => {}
     }
-    v.push(format!("저장 폴더: {}  (정리 결과 archive, 내보내기 exports)", s.output_dir.display()));
-    v.push(format!("카카오톡 사진 저장 폴더: {}", s.kakao_photo_dir.display()));
-    v.push(format!("동영상: {}", s.videos.label()));
+    info.extend(notes.iter().map(|n| format!("주의: {n}")));
+    if !info.is_empty() {
+        v.extend(info.into_iter().map(|l| Row::Text(format!("  {l}"))));
+        v.push(Row::Blank);
+    }
+    let names = ["결과 폴더", "다운로드 폴더", "동영상 보관"];
+    let width = names.iter().map(|n| screen::display_width(n)).max().unwrap_or(0) + COL;
+    let pad = " ".repeat(width);
+    v.push(Row::Text(format!("  {}", cfg_path.display())));
+    v.push(Row::Rule);
+    v.push(Row::Text(format!("  {}{}", label(names[0], width), s.result_dir.display())));
+    v.push(Row::Text(format!("  {pad}├─ archive\\    # 정리한 대화")));
+    v.push(Row::Text(format!("  {pad}└─ exports\\    # 내보낸 TXT")));
+    v.push(Row::Text(format!("  {}{}", label(names[1], width), s.download_dir.display())));
+    v.push(Row::Blank);
+    v.push(Row::Text("  옵션".to_string()));
+    v.push(Row::Text(format!("  {}{}", label(names[2], width), videos_choices(s.videos))));
+    v.push(Row::Blank);
     v
+}
+
+/// `[물어보기]  항상 보관  보관 안 함` — 지금 값은 대괄호, 나머지는 고를 수 있는 값이다.
+pub fn videos_choices(current: settings::Videos) -> String {
+    settings::Videos::ALL
+        .iter()
+        .map(|v| if *v == current { format!("[{}]", v.label()) } else { v.label().to_string() })
+        .collect::<Vec<_>>()
+        .join("  ")
+}
+
+fn print_header(cfg_path: &Path, s: &Settings, status: &LoadStatus, notes: &[String]) {
+    let title = format!("kkt-manual-export-v{}", settings::VERSION);
+    for l in screen::render(&title, &header_rows(cfg_path, s, status, notes), screen::terminal_width()) {
+        println!("{l}");
+    }
 }
 
 /// 폴더를 탐색기(Finder)로 연다. 없으면 만든다.
@@ -376,11 +455,11 @@ fn save_settings(s: &Settings, cfg_path: &Path) {
 fn settings_menu(s: &mut Settings, cfg_path: &Path) {
     loop {
         println!("\n-- 설정 (바꾸면 바로 저장됩니다) --");
-        println!("설정 파일: {}", cfg_path.display());
-        println!("  1) 저장 폴더: {}", s.output_dir.display());
-        println!("  2) 카카오톡 사진 저장 폴더: {}", s.kakao_photo_dir.display());
-        println!("     (카카오톡 설정의 '사진 저장 위치'와 같아야 저장된 사진을 확인할 수 있습니다. 이 프로그램은 그 폴더를 바꾸지 않고 지켜보기만 합니다)");
-        println!("  3) 동영상: {}  (누를 때마다 바뀝니다)", s.videos.label());
+        println!("{}", cfg_path.display());
+        println!("  1) 결과 폴더: {}", s.result_dir.display());
+        println!("  2) 다운로드 폴더: {}", s.download_dir.display());
+        println!("     (카카오톡 설정의 '사진 저장 위치'와 같아야 다운로드한 파일을 확인할 수 있습니다. 이 프로그램은 그 폴더를 바꾸지 않고 지켜보기만 합니다)");
+        println!("  3) 동영상 보관: {}  (누를 때마다 바뀝니다)", videos_choices(s.videos));
         println!("  r) 기본값으로 되돌리기");
         let Some(line) = prompt("번호를 입력하세요 (Enter = 돌아가기): ") else { return };
         match line.trim().to_lowercase().as_str() {
@@ -395,12 +474,12 @@ fn settings_menu(s: &mut Settings, cfg_path: &Path) {
                         println!("그 폴더를 만들 수 없습니다: {e}");
                         continue;
                     }
-                    s.output_dir = p;
+                    s.result_dir = p;
                 } else {
                     if !p.is_dir() {
-                        println!("주의: 아직 없는 폴더입니다. 카카오톡이 사진을 이 폴더에 저장하도록 설정되어 있는지 확인하세요.");
+                        println!("주의: 아직 없는 폴더입니다. 카카오톡이 사진을 이 폴더에 내려받도록 설정되어 있는지 확인하세요.");
                     }
-                    s.kakao_photo_dir = p;
+                    s.download_dir = p;
                 }
                 save_settings(s, cfg_path);
             }
@@ -417,11 +496,36 @@ fn settings_menu(s: &mut Settings, cfg_path: &Path) {
     }
 }
 
+/// 다음에 무엇을 할지.
+enum Next {
+    Quit,
+    /// 목록을 다시 불러오고 입력을 받는다
+    Again,
+    /// 설정이나 옵션이 바뀌었을 수 있으니 시작 화면도 다시 그린다
+    Redraw,
+}
+
+fn print_commands(first: &str) {
+    println!("\n아래 중 하나만 입력하세요.");
+    if !first.is_empty() {
+        println!("  {first}");
+    }
+    println!("  o         결과 폴더 열기");
+    println!("  s         설정");
+    println!("  q         종료");
+}
+
+fn do_open(s: &Settings) {
+    if let Err(e) = open_folder(&s.result_dir) {
+        println!("{e}");
+    }
+}
+
 /// Windows 가 아닐 때: 카카오톡 조작(수집)은 못 하므로 직접 내보낸 TXT 를 골라 정리만 한다.
-fn files_menu(s: &mut Settings, cfg_path: &Path) -> bool {
+fn files_menu(s: &mut Settings, cfg_path: &Path) -> Next {
     println!("\n이 컴퓨터에서는 카카오톡을 자동으로 조작할 수 없습니다 (수집은 Windows 전용).");
     println!("카카오톡에서 직접 대화를 내보낸 TXT 파일을 고르면 정리해 드립니다.\n");
-    let files = find_exports(&search_dirs(), &s.output_dir, 20);
+    let files = find_exports(&search_dirs(), &s.result_dir, 20);
     if files.is_empty() {
         println!("다운로드·문서·바탕화면에서 내보내기 파일(KakaoTalk…txt)을 찾지 못했습니다.");
     } else {
@@ -430,66 +534,70 @@ fn files_menu(s: &mut Settings, cfg_path: &Path) -> bool {
             println!("  {}) {}", i + 1, f.display());
         }
     }
-    let Some(line) = prompt("\n번호를 입력하거나 파일을 이 창에 끌어다 놓으세요 (o = 결과 폴더 열기, s = 설정, Enter = 종료): ") else { return false };
-    match line.trim().to_lowercase().as_str() {
-        "" => return false,
-        "o" => {
-            if let Err(e) = open_folder(&s.output_dir) {
-                println!("{e}");
-            }
-        }
-        "s" => settings_menu(s, cfg_path),
-        _ => {
-            if let Some(i) = parse_choice(&line, files.len()) {
-                ingest_and_report(&files[i], s);
-            } else {
-                let p = PathBuf::from(clean_path(&line));
-                if p.is_file() {
-                    ingest_and_report(&p, s);
-                } else {
-                    println!("\n번호나 올바른 파일 경로가 아닙니다.");
-                }
-            }
-        }
-    }
-    true
-}
-
-/// Windows: 열려 있는 방 목록에서 골라 수집한다. 계속하려면 true.
-fn rooms_menu(s: &mut Settings, cfg_path: &Path) -> bool {
-    let titles = window::list_chat_titles();
-    if titles.is_empty() {
-        println!("\n열려 있는 채팅방이 없습니다. 수집할 방을 카카오톡에서 창으로 열어 둔 뒤 Enter 를 누르세요. (o = 결과 폴더 열기, s = 설정, q = 종료)");
-        let Some(line) = prompt("") else { return false };
+    print_commands("번호 또는 파일 경로   정리를 시작 (파일을 이 창에 끌어다 놓아도 됩니다)");
+    loop {
+        let Some(line) = prompt("> ") else { return Next::Quit };
         match line.trim().to_lowercase().as_str() {
-            "q" => return false,
+            "" => return Next::Again,
+            "q" => return Next::Quit,
             "o" => {
-                let _ = open_folder(&s.output_dir).map_err(|e| println!("{e}"));
+                do_open(s);
+                return Next::Again;
             }
-            "s" => settings_menu(s, cfg_path),
+            "s" => {
+                settings_menu(s, cfg_path);
+                return Next::Redraw;
+            }
             _ => {}
         }
-        return true;
-    }
-    println!("\n열려 있는 채팅방:");
-    for (i, t) in titles.iter().enumerate() {
-        println!("  {}) {t}", i + 1);
-    }
-    let Some(line) = prompt("\n수집할 방 번호 (여러 개는 1,3 또는 1-3, a = 모두) / o = 결과 폴더 열기 / s = 설정 / Enter = 종료: ") else { return false };
-    match line.trim().to_lowercase().as_str() {
-        "" => return false,
-        "o" => {
-            if let Err(e) = open_folder(&s.output_dir) {
-                println!("{e}");
-            }
+        if let Some(i) = parse_choice(&line, files.len()) {
+            ingest_and_report(&files[i], s);
+            return Next::Again;
         }
-        "s" => settings_menu(s, cfg_path),
-        _ => match parse_selection(&line, titles.len()) {
-            Ok(picked) => collect_rooms(&titles, &picked, s, cfg_path),
-            Err(msg) => println!("\n{msg}"),
-        },
+        let p = PathBuf::from(clean_path(&line));
+        if p.is_file() {
+            ingest_and_report(&p, s);
+            return Next::Again;
+        }
+        println!("번호나 올바른 파일 경로가 아닙니다.");
     }
-    true
+}
+
+/// Windows: 열려 있는 방 목록에서 골라 수집한다.
+fn rooms_menu(s: &mut Settings, cfg_path: &Path) -> Next {
+    let titles = window::list_chat_titles();
+    println!();
+    if titles.is_empty() {
+        println!("열려 있는 채팅방이 없습니다. 수집할 방을 카카오톡에서 창으로 열어 두세요. (그냥 Enter = 다시 찾기)");
+        print_commands("");
+    } else {
+        println!("열려 있는 채팅방:");
+        for (i, t) in titles.iter().enumerate() {
+            println!("  {}) {t}", i + 1);
+        }
+        print_commands("방번호(ex: 1, 3, 4 | 1-3 | a | all)   수집을 시작");
+    }
+    loop {
+        let Some(line) = prompt("> ") else { return Next::Quit };
+        match parse_command(&line, titles.len()) {
+            Command::Quit => return Next::Quit,
+            Command::Empty => return Next::Again,
+            Command::OpenFolder => {
+                do_open(s);
+                return Next::Again;
+            }
+            Command::Settings => {
+                settings_menu(s, cfg_path);
+                return Next::Redraw;
+            }
+            Command::Rooms(picked) if !titles.is_empty() => {
+                collect_rooms(&titles, &picked, s, cfg_path);
+                return Next::Redraw;
+            }
+            Command::Rooms(_) => println!("열려 있는 채팅방이 없습니다."),
+            Command::Invalid(msg) => println!("{msg}"),
+        }
+    }
 }
 
 /// 고른 방들을 차례로 처리한다. Ctrl+D 로 중단하면 남은 방은 건너뛴다.
@@ -512,7 +620,7 @@ fn collect_rooms(titles: &[String], picked: &[usize], s: &mut Settings, cfg_path
     }
     if picked.len() > 1 {
         println!(
-            "\n전체 결과: 완료 {done}개, 반영하지 않음 {declined}개, 실패·중단 {failed}개{}",
+            "\n전체 결과: 완료 {done}개, 정리하지 않음 {declined}개, 실패·중단 {failed}개{}",
             if remaining > 0 { format!(", 건너뜀 {remaining}개 (Ctrl+D 로 중단)") } else { String::new() }
         );
     }
@@ -522,16 +630,21 @@ fn collect_rooms(titles: &[String], picked: &[usize], s: &mut Settings, cfg_path
 pub fn run() -> i32 {
     sys::set_console_utf8();
     let cfg_path = settings::config_path();
-    let (mut s, status) = Settings::load(&cfg_path);
+    let settings::Loaded { settings: mut s, mut status, mut notes } = Settings::load(&cfg_path);
+    let mut redraw = true;
     loop {
-        for l in header_lines(&cfg_path, &s, &status) {
-            println!("{l}");
+        if redraw {
+            print_header(&cfg_path, &s, &status, &notes);
+            // 처음 실행 안내와 읽다가 알게 된 것은 한 번만 보여 준다
+            status = LoadStatus::Loaded;
+            notes.clear();
         }
-        let go_on = if sys::SUPPORTED { rooms_menu(&mut s, &cfg_path) } else { files_menu(&mut s, &cfg_path) };
-        if !go_on {
-            return 0;
+        let next = if sys::SUPPORTED { rooms_menu(&mut s, &cfg_path) } else { files_menu(&mut s, &cfg_path) };
+        match next {
+            Next::Quit => return 0,
+            Next::Again => redraw = false,
+            Next::Redraw => redraw = true,
         }
-        println!();
     }
 }
 
@@ -565,18 +678,96 @@ mod tests {
         }
     }
 
+    fn texts(rows: &[Row]) -> Vec<String> {
+        rows.iter().map(|r| match r { Row::Text(t) => t.clone(), Row::Blank => String::new(), Row::Rule => "---".into() }).collect()
+    }
+
     #[test]
-    fn header_puts_config_path_first() {
-        let cfg = Path::new("/home/a/.config/kkt-manual-export/config.json");
+    fn header_rows_follow_the_agreed_layout() {
+        let cfg = Path::new(r"C:\Users\spgmb\AppData\Roaming\kkt-manual-export\config.toml");
+        let s = Settings { result_dir: PathBuf::from(r"C:\Users\spgmb\Downloads\kkt-manual-export-archive"), download_dir: PathBuf::from(r"C:\Users\spgmb\Documents\카카오톡 받은 파일"), videos: settings::Videos::Ask };
+        let t = texts(&header_rows(cfg, &s, &LoadStatus::Loaded, &[]));
+        // 맨 위: 빈 줄, 설정 파일 경로(이름표 없이), 구분선, 결과 폴더, 트리, 다운로드 폴더, 빈 줄, 옵션, 동영상 보관, 빈 줄
+        assert_eq!(t[0], "");
+        assert_eq!(t[1], r"  C:\Users\spgmb\AppData\Roaming\kkt-manual-export\config.toml");
+        assert_eq!(t[2], "---");
+        assert!(t[3].starts_with("  결과 폴더") && t[3].ends_with(r"C:\Users\spgmb\Downloads\kkt-manual-export-archive"));
+        assert!(t[4].contains("├─ archive\\    # 정리한 대화"), "{:?}", t[4]);
+        assert!(t[5].contains("└─ exports\\    # 내보낸 TXT"), "{:?}", t[5]);
+        assert!(t[6].starts_with("  다운로드 폴더") && t[6].ends_with(r"C:\Users\spgmb\Documents\카카오톡 받은 파일"));
+        assert_eq!((t[7].as_str(), t[8].as_str()), ("", "  옵션"));
+        assert!(t[9].starts_with("  동영상 보관") && t[9].ends_with("[물어보기]  항상 보관  보관 안 함"), "{:?}", t[9]);
+        assert_eq!(t.len(), 11);
+        assert!(!t.iter().any(|l| l.contains("설정 파일") || l.contains("저장 폴더")), "옛 용어가 남으면 안 된다");
+    }
+
+    #[test]
+    fn path_values_start_in_the_same_column_with_four_spaces_after_the_longest_label() {
         let s = Settings::default();
-        let h = header_lines(cfg, &s, &LoadStatus::Loaded);
-        assert_eq!(h[0], "== 카카오톡 대화 수집 ==");
-        assert!(h[1].starts_with("설정 파일: ") && h[1].contains("config.json"), "{:?}", h[1]);
-        assert!(h.iter().any(|l| l.contains("저장 폴더")) && h.iter().any(|l| l.contains("동영상")));
-        let created = header_lines(cfg, &s, &LoadStatus::Created);
-        assert!(created[2].contains("새로 만들었습니다"));
-        let bad = header_lines(cfg, &s, &LoadStatus::Invalid("expected value".into()));
-        assert!(bad[2].contains("덮어쓰지 않았습니다") && bad[2].contains("expected value"));
+        let t = texts(&header_rows(Path::new("/c/config.toml"), &s, &LoadStatus::Loaded, &[]));
+        let col = |line: &str| screen::display_width(&line[..line.find(&s.result_dir.to_string_lossy().to_string()).or_else(|| line.find(&s.download_dir.to_string_lossy().to_string())).unwrap()]);
+        assert_eq!(col(&t[3]), col(&t[6]), "결과 폴더와 다운로드 폴더의 경로는 같은 칸에서 시작한다");
+        assert_eq!(col(&t[3]), 2 + screen::display_width("다운로드 폴더") + COL);
+        // 트리와 옵션 값도 같은 칸
+        assert_eq!(screen::display_width(&t[4][..t[4].find('├').unwrap()]), col(&t[3]));
+        assert_eq!(screen::display_width(&t[9][..t[9].find('[').unwrap()]), col(&t[3]));
+    }
+
+    #[test]
+    fn header_notes_show_first_run_migration_and_problems_above_the_paths() {
+        let cfg = Path::new("/c/config.toml");
+        let s = Settings::default();
+        let created = texts(&header_rows(cfg, &s, &LoadStatus::Created, &[]));
+        assert_eq!(created[1], "  처음 실행이라 기본 설정 파일을 새로 만들었습니다.");
+        assert_eq!(created[2], "");
+        assert_eq!(created[3], "  /c/config.toml");
+        let migrated = texts(&header_rows(cfg, &s, &LoadStatus::Migrated(PathBuf::from("/c/config.json")), &[]));
+        assert!(migrated[1].contains("config.json") && migrated[1].contains("옛 파일은 그대로"));
+        let bad = texts(&header_rows(cfg, &s, &LoadStatus::Invalid("denied".into()), &["videos 값 x".to_string()]));
+        assert!(bad[1].contains("덮어쓰지 않았습니다") && bad[1].contains("denied"));
+        assert_eq!(bad[2], "  주의: videos 값 x");
+    }
+
+    #[test]
+    fn rendered_header_box_is_aligned_and_titled_with_the_version() {
+        let s = Settings::default();
+        let lines = screen::render(&format!("kkt-manual-export-v{}", settings::VERSION), &header_rows(Path::new("/c/config.toml"), &s, &LoadStatus::Loaded, &[]), Some(500));
+        let w: Vec<usize> = lines.iter().map(|l| screen::display_width(l)).collect();
+        assert!(w.iter().all(|x| *x == w[0]), "{w:?}\n{}", lines.join("\n"));
+        assert!(lines[0].contains(&format!("kkt-manual-export-v{}", settings::VERSION)));
+    }
+
+    #[test]
+    fn videos_choices_mark_the_current_value() {
+        assert_eq!(videos_choices(settings::Videos::Ask), "[물어보기]  항상 보관  보관 안 함");
+        assert_eq!(videos_choices(settings::Videos::Keep), "물어보기  [항상 보관]  보관 안 함");
+        assert_eq!(videos_choices(settings::Videos::Skip), "물어보기  항상 보관  [보관 안 함]");
+    }
+
+    #[test]
+    fn one_input_means_one_thing() {
+        assert_eq!(parse_command("o", 2), Command::OpenFolder);
+        assert_eq!(parse_command(" S ", 2), Command::Settings);
+        assert_eq!(parse_command("q", 2), Command::Quit);
+        assert_eq!(parse_command("", 2), Command::Empty);
+        assert_eq!(parse_command("   ", 2), Command::Empty);
+        assert_eq!(parse_command("1, 2", 2), Command::Rooms(vec![0, 1]));
+        assert_eq!(parse_command("all", 2), Command::Rooms(vec![0, 1]));
+        assert_eq!(parse_command("A", 3), Command::Rooms(vec![0, 1, 2]));
+        assert_eq!(parse_command("1-2", 3), Command::Rooms(vec![0, 1]));
+    }
+
+    #[test]
+    fn numbers_and_commands_cannot_be_combined() {
+        for mixed in ["1s", "2q", "s1", "q 2", "1 o", "1,2s", "o1"] {
+            match parse_command(mixed, 3) {
+                Command::Invalid(m) => assert!(m.contains("함께 쓸 수 없습니다") && m.contains(mixed.trim()), "{mixed}: {m}"),
+                other => panic!("{mixed}: {other:?}"),
+            }
+        }
+        assert!(matches!(parse_command("x", 3), Command::Invalid(m) if m.contains("잘못된 입력")));
+        assert!(matches!(parse_command("9", 3), Command::Invalid(m) if m.contains("1 ~ 3")));
+        assert!(matches!(parse_command("ss", 3), Command::Invalid(_)), "명령은 한 글자만");
     }
 
     #[test]
@@ -624,7 +815,7 @@ mod tests {
     fn summary_skipped() {
         let s = summarize(&json!({"skipped": "이미 반영된 내보내기", "events": {}}));
         assert_eq!(s.len(), 1);
-        assert!(s[0].contains("이미 반영"));
+        assert!(s[0].contains("이미 정리한"));
     }
 
     #[test]

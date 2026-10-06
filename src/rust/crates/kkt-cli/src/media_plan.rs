@@ -55,7 +55,7 @@ pub fn plan(media: &[MediaRec], mode: Videos, ask: &mut dyn Asker) -> (Option<Pl
         Videos::Skip => (false, None),
         Videos::Ask => {
             let q = format!(
-                "서랍에 아직 보관하지 않은 동영상이 {kv}개 있습니다. 아카이브에 보관할까요?\n  동영상은 크기가 커서 저장 폴더와 아카이브에 파일이 그대로 복사됩니다. 보관하지 않아도 메시지는 그대로 기록됩니다."
+                "서랍에 아직 보관하지 않은 동영상이 {kv}개 있습니다. 보관할까요?\n  보관하면 동영상을 다운로드해서 결과 폴더(archive)에 복사합니다. 크기가 클 수 있습니다. 보관하지 않아도 메시지는 그대로 기록됩니다."
             );
             let opts = vec![
                 "이번에는 보관하지 않기".to_string(),

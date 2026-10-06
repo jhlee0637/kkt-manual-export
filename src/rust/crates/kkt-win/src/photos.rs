@@ -362,7 +362,7 @@ fn run(save_dir: &Path, guard: &Guard, opt: &Options, info: &window::Info, meta:
     meta["saved_files"] = json!(files);
     meta["seen_cells"] = Value::from(sel.seen);
     if ok.is_none() {
-        warn(meta, &format!("저장된 새 파일이 {}개뿐이다 (기대 {expected}개). 저장 폴더가 기본 위치가 아니거나 저장이 중단됐을 수 있다", files.len()));
+        warn(meta, &format!("다운로드된 새 파일이 {}개뿐이다 (기대 {expected}개). 다운로드 폴더가 카카오톡의 '사진 저장 위치'와 다르거나 다운로드가 중단됐을 수 있다", files.len()));
     }
     Ok(())
 }
@@ -410,7 +410,7 @@ fn handle_popup(pid: u32, known: &HashSet<Hwnd>, guard: &Guard, meta: &mut Value
         0.4,
     )?;
     if finished.is_none() {
-        return fail("사진 저장이 5분 안에 끝나지 않았다 (팝업을 닫지 않았다)");
+        return fail("다운로드가 5분 안에 끝나지 않았다 (팝업을 닫지 않았다)");
     }
     guard.sleep(0.5)?;
     if let Some(img) = sys::capture_window(p) {

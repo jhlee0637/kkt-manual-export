@@ -303,6 +303,44 @@ mod imp {
         unsafe { SetConsoleOutputCP(65001) };
     }
 
+    /// 콘솔 창의 보이는 폭(칸). 콘솔이 아니면(파이프 등) `None`.
+    pub fn console_width() -> Option<usize> {
+        #[repr(C)]
+        struct Coord {
+            x: i16,
+            y: i16,
+        }
+        #[repr(C)]
+        struct SmallRect {
+            left: i16,
+            top: i16,
+            right: i16,
+            bottom: i16,
+        }
+        #[repr(C)]
+        struct ScreenInfo {
+            size: Coord,
+            cursor: Coord,
+            attributes: u16,
+            window: SmallRect,
+            max_size: Coord,
+        }
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn GetStdHandle(which: u32) -> isize;
+            fn GetConsoleScreenBufferInfo(h: isize, info: *mut ScreenInfo) -> i32;
+        }
+        unsafe {
+            let h = GetStdHandle(0xFFFF_FFF5); // STD_OUTPUT_HANDLE (-11)
+            let mut info = std::mem::zeroed::<ScreenInfo>();
+            if h == 0 || h == -1 || GetConsoleScreenBufferInfo(h, &mut info) == 0 {
+                return None;
+            }
+            let w = info.window.right as i32 - info.window.left as i32 + 1;
+            (w > 0).then_some(w as usize)
+        }
+    }
+
     /// 해당 프로세스의 보이는 최상위 창 `(hwnd, class, title)`. 제목 없는 완료 팝업도 포함한다.
     pub fn top_level_windows(pid: u32) -> Vec<(Hwnd, String, String)> {
         all_top_level()
@@ -470,6 +508,7 @@ mod stub {
     pub fn find_top_level(_: &str, _: &str) -> Vec<Hwnd> { Vec::new() }
     pub fn list_top_level(_: &str) -> Vec<(Hwnd, String)> { Vec::new() }
     pub fn set_console_utf8() {}
+    pub fn console_width() -> Option<usize> { None }
     pub fn top_level_windows(_: u32) -> Vec<(Hwnd, String, String)> { Vec::new() }
     pub fn top_level_dialogs(_: u32) -> Vec<Hwnd> { Vec::new() }
     pub fn descendants(_: Hwnd) -> Vec<(Hwnd, String, String, i32)> { Vec::new() }
