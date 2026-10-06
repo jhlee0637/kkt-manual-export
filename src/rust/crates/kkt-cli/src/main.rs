@@ -17,6 +17,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+mod settings;
 mod wizard;
 
 const USAGE: &str = "usage: kkt [--archive ARCHIVE] [--conversation CONVERSATION] {ingest,attach,status,participants,participant-link,collect,photos} ...";
