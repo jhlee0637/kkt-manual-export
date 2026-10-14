@@ -389,6 +389,12 @@ fn label(name: &str, width: usize) -> String {
 
 /// 시작 화면 상자 안의 줄들. 경로는 줄마다 완전한 한 줄이라 그대로 복사해서 쓸 수 있다.
 pub fn header_rows(cfg_path: &Path, s: &Settings, status: &LoadStatus, notes: &[String]) -> Vec<Row> {
+    header_rows_for(cfg_path, s, status, notes, cfg!(windows))
+}
+
+/// `windows` 가 아니면 폴더 구분자를 `/` 로 쓰고, 이 컴퓨터에서 쓰지 않는 다운로드 폴더 줄을 뺀다 (사진·동영상 다운로드는 Windows 전용).
+pub fn header_rows_for(cfg_path: &Path, s: &Settings, status: &LoadStatus, notes: &[String], windows: bool) -> Vec<Row> {
+    let sep = if windows { '\\' } else { '/' };
     let mut v = vec![Row::Blank];
     let mut info: Vec<String> = Vec::new();
     match status {
@@ -403,14 +409,17 @@ pub fn header_rows(cfg_path: &Path, s: &Settings, status: &LoadStatus, notes: &[
         v.push(Row::Blank);
     }
     let names = ["결과 폴더", "다운로드 폴더", "동영상 보관"];
-    let width = names.iter().map(|n| screen::display_width(n)).max().unwrap_or(0) + COL;
+    let shown: &[&str] = if windows { &names } else { &[names[0], names[2]] };
+    let width = shown.iter().map(|n| screen::display_width(n)).max().unwrap_or(0) + COL;
     let pad = " ".repeat(width);
     v.push(Row::Text(format!("  {}", cfg_path.display())));
     v.push(Row::Rule);
     v.push(Row::Text(format!("  {}{}", label(names[0], width), s.result_dir.display())));
-    v.push(Row::Text(format!("  {pad}├─ archive\\    # 정리한 대화")));
-    v.push(Row::Text(format!("  {pad}└─ exports\\    # 내보낸 TXT")));
-    v.push(Row::Text(format!("  {}{}", label(names[1], width), s.download_dir.display())));
+    v.push(Row::Text(format!("  {pad}├─ archive{sep}    # 정리한 대화")));
+    v.push(Row::Text(format!("  {pad}└─ exports{sep}    # 내보낸 TXT")));
+    if windows {
+        v.push(Row::Text(format!("  {}{}", label(names[1], width), s.download_dir.display())));
+    }
     v.push(Row::Blank);
     v.push(Row::Text("  옵션".to_string()));
     v.push(Row::Text(format!("  {}{}", label(names[2], width), videos_choices(s.videos))));
@@ -470,15 +479,17 @@ fn settings_menu(s: &mut Settings, cfg_path: &Path) {
         println!("\n-- 설정 (바꾸면 바로 저장됩니다) --");
         println!("{}", cfg_path.display());
         println!("  1) 결과 폴더: {}", s.result_dir.display());
-        println!("  2) 다운로드 폴더: {}", s.download_dir.display());
-        println!("     (카카오톡 설정의 '사진 저장 위치'와 같아야 다운로드한 파일을 확인할 수 있습니다. 이 프로그램은 그 폴더를 바꾸지 않고 지켜보기만 합니다)");
+        if cfg!(windows) {
+            println!("  2) 다운로드 폴더: {}", s.download_dir.display());
+            println!("     (카카오톡 설정의 '사진 저장 위치'와 같아야 다운로드한 파일을 확인할 수 있습니다. 이 프로그램은 그 폴더를 바꾸지 않고 지켜보기만 합니다)");
+        }
         println!("  3) 동영상 보관: {}  (누를 때마다 바뀝니다)", videos_choices(s.videos));
         println!("  g) 안내 파일(README.md, AGENTS.md) 다시 만들기");
         println!("  r) 기본값으로 되돌리기");
         let Some(line) = prompt("번호를 입력하세요 (Enter = 돌아가기): ") else { return };
         match line.trim().to_lowercase().as_str() {
             "" => return,
-            "1" | "2" => {
+            "1" | "2" if line.trim() == "1" || cfg!(windows) => {
                 let which = line.trim() == "1";
                 let Some(l) = prompt("새 폴더 경로 (Enter = 취소, 폴더를 이 창에 끌어다 놓아도 됩니다): ") else { return };
                 let cwd = std::env::current_dir().unwrap_or_default();
@@ -518,7 +529,7 @@ fn settings_menu(s: &mut Settings, cfg_path: &Path) {
                 *s = Settings::default();
                 save_settings(s, cfg_path);
             }
-            _ => println!("1, 2, 3, g, r 중에서 고르세요."),
+            _ => println!("{}, 3, g, r 중에서 고르세요.", if cfg!(windows) { "1, 2" } else { "1" }),
         }
     }
 }
@@ -713,7 +724,7 @@ mod tests {
     fn header_rows_follow_the_agreed_layout() {
         let cfg = Path::new(r"C:\Users\spgmb\AppData\Roaming\kkt-manual-export\config.toml");
         let s = Settings { result_dir: PathBuf::from(r"C:\Users\spgmb\Downloads\kkt-manual-export-archive"), download_dir: PathBuf::from(r"C:\Users\spgmb\Documents\카카오톡 받은 파일"), videos: settings::Videos::Ask };
-        let t = texts(&header_rows(cfg, &s, &LoadStatus::Loaded, &[]));
+        let t = texts(&header_rows_for(cfg, &s, &LoadStatus::Loaded, &[], true));
         // 맨 위: 빈 줄, 설정 파일 경로(이름표 없이), 구분선, 결과 폴더, 트리, 다운로드 폴더, 빈 줄, 옵션, 동영상 보관, 빈 줄
         assert_eq!(t[0], "");
         assert_eq!(t[1], r"  C:\Users\spgmb\AppData\Roaming\kkt-manual-export\config.toml");
@@ -729,9 +740,20 @@ mod tests {
     }
 
     #[test]
+    fn header_rows_on_mac_use_slashes_and_hide_the_download_folder() {
+        let s = Settings { result_dir: PathBuf::from("/Users/a/Downloads/kkt"), download_dir: PathBuf::from("/Users/a/Documents/카카오톡 받은 파일"), videos: settings::Videos::Ask };
+        let t = texts(&header_rows_for(Path::new("/c/config.toml"), &s, &LoadStatus::Loaded, &[], false));
+        assert!(t[4].contains("├─ archive/    # 정리한 대화"), "{:?}", t[4]);
+        assert!(t[5].contains("└─ exports/    # 내보낸 TXT"), "{:?}", t[5]);
+        assert!(!t.iter().any(|l| l.contains("다운로드 폴더") || l.contains("카카오톡 받은 파일")));
+        assert!(t[6..].iter().any(|l| l.starts_with("  동영상 보관")));
+        assert_eq!(screen::display_width(&t[3][..t[3].find("/Users").unwrap()]), screen::display_width(&t[4][..t[4].find('├').unwrap()]));
+    }
+
+    #[test]
     fn path_values_start_in_the_same_column_with_four_spaces_after_the_longest_label() {
         let s = Settings::default();
-        let t = texts(&header_rows(Path::new("/c/config.toml"), &s, &LoadStatus::Loaded, &[]));
+        let t = texts(&header_rows_for(Path::new("/c/config.toml"), &s, &LoadStatus::Loaded, &[], true));
         let col = |line: &str| screen::display_width(&line[..line.find(&s.result_dir.to_string_lossy().to_string()).or_else(|| line.find(&s.download_dir.to_string_lossy().to_string())).unwrap()]);
         assert_eq!(col(&t[3]), col(&t[6]), "결과 폴더와 다운로드 폴더의 경로는 같은 칸에서 시작한다");
         assert_eq!(col(&t[3]), 2 + screen::display_width("다운로드 폴더") + COL);
@@ -744,13 +766,13 @@ mod tests {
     fn header_notes_show_first_run_migration_and_problems_above_the_paths() {
         let cfg = Path::new("/c/config.toml");
         let s = Settings::default();
-        let created = texts(&header_rows(cfg, &s, &LoadStatus::Created, &[]));
+        let created = texts(&header_rows_for(cfg, &s, &LoadStatus::Created, &[], true));
         assert_eq!(created[1], "  처음 실행이라 기본 설정 파일을 새로 만들었습니다.");
         assert_eq!(created[2], "");
         assert_eq!(created[3], "  /c/config.toml");
-        let migrated = texts(&header_rows(cfg, &s, &LoadStatus::Migrated(PathBuf::from("/c/config.json")), &[]));
+        let migrated = texts(&header_rows_for(cfg, &s, &LoadStatus::Migrated(PathBuf::from("/c/config.json")), &[], true));
         assert!(migrated[1].contains("config.json") && migrated[1].contains("옛 파일은 그대로"));
-        let bad = texts(&header_rows(cfg, &s, &LoadStatus::Invalid("denied".into()), &["videos 값 x".to_string()]));
+        let bad = texts(&header_rows_for(cfg, &s, &LoadStatus::Invalid("denied".into()), &["videos 값 x".to_string()], true));
         assert!(bad[1].contains("덮어쓰지 않았습니다") && bad[1].contains("denied"));
         assert_eq!(bad[2], "  주의: videos 값 x");
     }
@@ -758,7 +780,7 @@ mod tests {
     #[test]
     fn rendered_header_box_is_aligned_and_titled_with_the_version() {
         let s = Settings::default();
-        let lines = screen::render(&format!("kkt-manual-export-v{}", settings::VERSION), &header_rows(Path::new("/c/config.toml"), &s, &LoadStatus::Loaded, &[]), Some(500));
+        let lines = screen::render(&format!("kkt-manual-export-v{}", settings::VERSION), &header_rows_for(Path::new("/c/config.toml"), &s, &LoadStatus::Loaded, &[], true), Some(500));
         let w: Vec<usize> = lines.iter().map(|l| screen::display_width(l)).collect();
         assert!(w.iter().all(|x| *x == w[0]), "{w:?}\n{}", lines.join("\n"));
         assert!(lines[0].contains(&format!("kkt-manual-export-v{}", settings::VERSION)));

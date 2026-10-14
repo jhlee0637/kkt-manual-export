@@ -172,7 +172,7 @@ impl Settings {
              # 이 파일은 직접 고쳐도 됩니다. 고친 뒤 프로그램을 다시 실행하면 적용됩니다.\n\
              # 경로는 작은따옴표('...') 안에 그대로 쓰면 됩니다 (\\ 를 두 번 쓰지 않아도 됩니다).\n\
              \n\
-             # 결과 폴더: 정리한 대화(archive\\)와 내보낸 TXT(exports\\)를 두는 폴더\n\
+             # 결과 폴더: 정리한 대화(archive{sep})와 내보낸 TXT(exports{sep})를 두는 폴더\n\
              result_dir = {result}\n\
              \n\
              # 다운로드 폴더: 카카오톡이 사진·동영상을 내려받는 폴더\n\
@@ -184,6 +184,7 @@ impl Settings {
              #   \"keep\" = 항상 보관합니다\n\
              #   \"skip\" = 보관하지 않습니다 (서랍에서 동영상을 다운로드하지도 않습니다)\n\
              videos = \"{videos}\"\n",
+            sep = std::path::MAIN_SEPARATOR,
             result = quote(&self.result_dir.to_string_lossy()),
             download = quote(&self.download_dir.to_string_lossy()),
             videos = self.videos.as_str(),
